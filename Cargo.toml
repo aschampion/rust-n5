@@ -1,0 +1,32 @@
+[package]
+name = "n5"
+version = "0.1.0"
+license = "MIT/Apache-2.0"
+authors = ["Andrew Champion <andrew.champion@gmail.com>"]
+description = "Rust implementation of the N5 tensor file system format"
+
+[features]
+default = ["bzip", "gzip", "lz", "xz"]
+
+bzip = ["bzip2"]
+gzip = ["flate2"]
+lz = ["lz4"]
+xz = ["xz2"]
+
+[dependencies]
+byteorder = "1"
+fs2 = "0.4"
+lazy_static = "1.0"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+regex = "0.2"
+
+bzip2 = { version = "0.3", optional = true }
+# Use pure-rust Gzip for convenience. TODO: evaluate libflate as alternative.
+flate2 = { version = "1.0", features = ["rust_backend"], default-features = false, optional = true }
+lz4 = { version = "1.0", optional = true }
+xz2 = { version = "0.1", optional = true }
+
+[dev-dependencies]
+tempdir = "0.3"
