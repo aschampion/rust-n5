@@ -25,9 +25,14 @@ use std::io::{
     ErrorKind,
 };
 
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{
+    BigEndian,
+    ReadBytesExt,
+    WriteBytesExt,
+};
 use serde::Serialize;
 
+use ::compression::Compression;
 
 pub mod compression;
 pub mod filesystem;
@@ -114,6 +119,13 @@ pub trait N5Writer : N5Reader {
         self.create_group(path_name)?;
         self.set_dataset_attributes(path_name, data_attrs)
     }
+
+    fn write_block<T>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        block: Box<DataBlock<T>>,
+    ) -> Result<(), Error>;
 }
 
 
@@ -211,6 +223,10 @@ impl DatasetAttributes {
             compression,
         }
     }
+
+    pub fn get_ndim(&self) -> usize {
+        self.dimensions.len()
+    }
 }
 
 
@@ -220,14 +236,18 @@ pub trait ReadableDataBlock {
     fn read_data(&mut self, source: &mut std::io::Read) -> std::io::Result<()>;
 }
 
-pub trait DataBlock<T> : ReadableDataBlock {
+pub trait WriteableDataBlock {
+    fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()>;
+}
+
+pub trait DataBlock<T> : ReadableDataBlock + WriteableDataBlock {
     fn get_size(&self) -> &Vec<i32>;
 
     fn get_grid_position(&self) -> &Vec<i64>;
 
     fn get_data(&self) -> &T;
 
-    fn get_num_elements(&self) -> usize;
+    fn get_num_elements(&self) -> i32; // TODO: signed sizes feel awful.
 }
 
 pub struct VecDataBlock<T> {
@@ -247,27 +267,47 @@ impl<T> VecDataBlock<T> {
 }
 
 macro_rules! vec_data_block_impl {
-    ($ty_name:ty, $bo_fn:ident) => {
+    ($ty_name:ty, $bo_read_fn:ident, $bo_write_fn:ident) => {
         impl ReadableDataBlock for VecDataBlock<$ty_name> {
             fn read_data(&mut self, source: &mut std::io::Read) -> std::io::Result<()> {
-                source.$bo_fn::<BigEndian>(&mut self.data)
+                source.$bo_read_fn::<BigEndian>(&mut self.data)
+            }
+        }
+
+        impl WriteableDataBlock for VecDataBlock<$ty_name> {
+            fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()> {
+                for v in &self.data {
+                    target.$bo_write_fn::<BigEndian>(*v)?;
+                }
+
+                Ok(())
             }
         }
     }
 }
 
-vec_data_block_impl!(u16, read_u16_into);
-vec_data_block_impl!(u32, read_u32_into);
-vec_data_block_impl!(u64, read_u64_into);
-vec_data_block_impl!(i16, read_i16_into);
-vec_data_block_impl!(i32, read_i32_into);
-vec_data_block_impl!(i64, read_i64_into);
-vec_data_block_impl!(f32, read_f32_into);
-vec_data_block_impl!(f64, read_f64_into);
+vec_data_block_impl!(u16, read_u16_into, write_u16);
+vec_data_block_impl!(u32, read_u32_into, write_u32);
+vec_data_block_impl!(u64, read_u64_into, write_u64);
+vec_data_block_impl!(i16, read_i16_into, write_i16);
+vec_data_block_impl!(i32, read_i32_into, write_i32);
+vec_data_block_impl!(i64, read_i64_into, write_i64);
+vec_data_block_impl!(f32, read_f32_into, write_f32);
+vec_data_block_impl!(f64, read_f64_into, write_f64);
 
 impl ReadableDataBlock for VecDataBlock<u8> {
     fn read_data(&mut self, source: &mut std::io::Read) -> std::io::Result<()> {
         source.read_exact(&mut self.data)
+    }
+}
+
+impl WriteableDataBlock for VecDataBlock<u8> {
+    fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()> {
+        for v in &self.data {
+            target.write_u8(*v)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -280,8 +320,18 @@ impl ReadableDataBlock for VecDataBlock<i8> {
     }
 }
 
+impl WriteableDataBlock for VecDataBlock<i8> {
+    fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()> {
+        for v in &self.data {
+            target.write_i8(*v)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl<T> DataBlock<Vec<T>> for VecDataBlock<T>
-        where VecDataBlock<T>: ReadableDataBlock {
+        where VecDataBlock<T>: ReadableDataBlock + WriteableDataBlock {
     fn get_size(&self) -> &Vec<i32> {
         &self.size
     }
@@ -294,8 +344,8 @@ impl<T> DataBlock<Vec<T>> for VecDataBlock<T>
         &self.data
     }
 
-    fn get_num_elements(&self) -> usize {
-        self.data.len()
+    fn get_num_elements(&self) -> i32 {
+        self.data.len() as i32
     }
 }
 
@@ -326,10 +376,35 @@ pub trait DefaultBlockReader<T, R: std::io::Read> //:
             dims,
             grid_position,
             num_el as usize).unwrap();
-        let mut decompressed = data_attrs.compression.get_reader().decoder(buffer);
+        let mut decompressed = data_attrs.compression.decoder(buffer);
         block.read_data(&mut decompressed)?;
 
         Ok(block)
+    }
+}
+
+pub trait DefaultBlockWriter<T, W: std::io::Write> {
+    fn write_block(
+        mut buffer: W,
+        data_attrs: &DatasetAttributes,
+        block: Box<DataBlock<T>>,
+    ) -> std::io::Result<()> {
+        let mode: i16 = if block.get_num_elements() == block.get_size().iter().product::<i32>()
+            {1} else {0};
+        buffer.write_i16::<BigEndian>(mode)?;
+        buffer.write_i16::<BigEndian>(data_attrs.get_ndim() as i16)?;
+        for i in block.get_size() {
+            buffer.write_i32::<BigEndian>(*i)?;
+        }
+
+        if mode != 0 {
+            buffer.write_i32::<BigEndian>(block.get_num_elements())?;
+        }
+
+        let mut compressor = data_attrs.compression.encoder(buffer);
+        block.write_data(&mut compressor)?;
+
+        Ok(())
     }
 }
 
@@ -339,6 +414,7 @@ pub trait DefaultBlockReader<T, R: std::io::Read> //:
 struct Foo;
 impl<T, R: std::io::Read> DefaultBlockReader<T, R> for Foo
         where DataType: DataBlockCreator<Vec<T>> {}
+impl<T, W: std::io::Write> DefaultBlockWriter<T, W> for Foo {}
 
 
 /// A semantic version.
@@ -453,5 +529,37 @@ pub(crate) mod tests {
         assert_eq!(block.get_size(), &vec![1, 2, 3]);
         assert_eq!(block.get_grid_position(), &vec![0, 0, 0]);
         assert_eq!(block.get_data(), &vec![1, 2, 3, 4, 5, 6]);
+    }
+
+    pub(crate) fn test_block_compression_rw(compression: compression::CompressionType) {
+        let data_attrs = DatasetAttributes {
+            dimensions: vec![10, 10, 10],
+            block_size: vec![5, 5, 5],
+            data_type: DataType::INT32,
+            compression: compression,
+        };
+        let block_data: Vec<i32> = (0..125_i32).collect();
+        let block_in = Box::new(VecDataBlock::new(
+            data_attrs.block_size.clone(),
+            vec![0, 0, 0],
+            block_data.clone()));
+
+        let mut inner: Vec<u8> = Vec::new();
+        {
+            let w_buff = Cursor::new(&mut inner);
+            <Foo as DefaultBlockWriter<Vec<i32>, std::io::Cursor<_>>>::write_block(
+                w_buff,
+                &data_attrs,
+                block_in).expect("write_block failed");
+        }
+
+        let block_out = <Foo as DefaultBlockReader<i32, _>>::read_block(
+            &inner[..],
+            &data_attrs,
+            vec![0, 0, 0]).expect("read_block failed");
+
+        assert_eq!(block_out.get_size(), &vec![5, 5, 5]);
+        assert_eq!(block_out.get_grid_position(), &vec![0, 0, 0]);
+        assert_eq!(block_out.get_data(), &block_data);
     }
 }

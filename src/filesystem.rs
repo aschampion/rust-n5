@@ -29,6 +29,7 @@ use ::{
     DataType,
     DatasetAttributes,
     DefaultBlockReader,
+    DefaultBlockWriter,
     N5Reader,
     N5Writer,
     Version,
@@ -177,7 +178,7 @@ impl N5Reader for N5Filesystem {
             Ok(Some(<::Foo as DefaultBlockReader<T, _>>::read_block(
                 reader,
                 data_attrs,
-                grid_position).expect("read_block failed")))
+                grid_position)?))
         } else {
             Ok(None)
         }
@@ -258,8 +259,30 @@ impl N5Writer for N5Filesystem {
 
     fn create_group(&self, path_name: &str) -> Result<()> {
         let path = self.get_path(path_name)?;
-        println!("{:?}", path);
         fs::create_dir_all(path)
+    }
+
+    fn write_block<T>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        block: Box<DataBlock<T>>,
+    ) -> Result<()> {
+        let path = self.get_data_block_path(path_name, block.get_grid_position())?;
+        fs::create_dir_all(path.parent().expect("TODO: root block path?"))?;
+
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)?;
+        file.lock_exclusive()?;
+
+        let buffer = BufWriter::new(file);
+        <::Foo as DefaultBlockWriter<T, _>>::write_block(
+                buffer,
+                data_attrs,
+                block)
     }
 }
 
@@ -272,7 +295,6 @@ mod tests {
     fn create_filesystem() {
         let dir = TempDir::new("rust_n5_tests").unwrap();
         let path_str = dir.path().to_str().unwrap();
-        // let path_str = "tmp";
 
         let create = N5Filesystem::open_or_create(path_str)
             .expect("Failed to create N5 filesystem");
@@ -290,7 +312,6 @@ mod tests {
     fn create_dataset() {
         let dir = TempDir::new("rust_n5_tests").unwrap();
         let path_str = dir.path().to_str().unwrap();
-        // let path_str = "tmp";
 
         let create = N5Filesystem::open_or_create(path_str)
             .expect("Failed to create N5 filesystem");
@@ -298,7 +319,7 @@ mod tests {
             vec![10, 10, 10],
             vec![5, 5, 5],
             DataType::INT32,
-            ::compression::CompressionType::Raw,
+            ::compression::CompressionType::Raw(::compression::raw::RawCompression::default()),
         );
         create.create_dataset("foo/bar", &data_attrs)
             .expect("Failed to create dataset");
@@ -321,5 +342,42 @@ mod tests {
         assert!(create.get_path("..").is_err());
         assert!(create.get_path("foo/bar/baz/../../..").is_ok());
         assert!(create.get_path("foo/bar/baz/../../../..").is_err());
+    }
+
+    #[test]
+    fn create_block_rw() {
+        let dir = TempDir::new("rust_n5_tests").unwrap();
+        let path_str = dir.path().to_str().unwrap();
+        // let path_str = "tmp";
+
+        let create = N5Filesystem::open_or_create(path_str)
+            .expect("Failed to create N5 filesystem");
+        let data_attrs = DatasetAttributes::new(
+            vec![10, 10, 10],
+            vec![5, 5, 5],
+            DataType::INT32,
+            ::compression::CompressionType::Raw(::compression::raw::RawCompression::default()),
+        );
+        let block_data: Vec<i32> = (0..125_i32).collect();
+        let block_in = Box::new(::VecDataBlock::new(
+            data_attrs.block_size.clone(),
+            vec![0, 0, 0],
+            block_data.clone()));
+
+        create.create_dataset("foo/bar", &data_attrs)
+            .expect("Failed to create dataset");
+        create.write_block("foo/bar", &data_attrs, block_in)
+            .expect("Failed to write block");
+
+        let read = N5Filesystem::open(path_str)
+            .expect("Failed to open N5 filesystem");
+        let block_out = read.read_block::<i32>("foo/bar", &data_attrs, vec![0, 0, 0])
+            .expect("Failed to read block")
+            .expect("Block is empty");
+        let missing_block_out = read.read_block::<i32>("foo/bar", &data_attrs, vec![0, 0, 1])
+            .expect("Failed to read block");
+
+        assert_eq!(block_out.get_data(), &block_data);
+        assert!(missing_block_out.is_none());
     }
 }

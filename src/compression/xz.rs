@@ -1,24 +1,38 @@
-use std::io::Read;
+use std::io::{Read, Write};
 
 use xz2::read::XzDecoder;
+use xz2::write::XzEncoder;
 
 use super::{
     Compression,
-    XzParameters,
 };
 
 
-pub struct XzCompression;
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct XzCompression {
+    #[serde(default = "default_xz_preset")]
+    preset: i32,
+}
 
-impl XzCompression {
-    pub fn new(_params: &XzParameters) -> XzCompression {
-        XzCompression
+fn default_xz_preset() -> i32 {6}
+
+impl Default for XzCompression {
+    fn default() -> XzCompression {
+        XzCompression {
+            preset: default_xz_preset(),
+        }
     }
 }
 
-impl<'a, R: Read + 'a> Compression<'a, R> for XzCompression {
-    fn decoder(&self, r: R) -> Box<Read + 'a> {
+impl Compression for XzCompression {
+    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a> {
         Box::new(XzDecoder::new(r))
+    }
+
+    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
+        // TODO: check that preset is non-negative.s
+        Box::new(XzEncoder::new(w, self.preset as u32))
     }
 }
 
@@ -57,6 +71,11 @@ mod tests {
     fn test_read_doc_spec_block() {
         ::tests::test_read_doc_spec_block(
             &TEST_BLOCK_I16_XZ[..],
-            CompressionType::Xz(XzParameters::default()));
+            CompressionType::Xz(XzCompression::default()));
+    }
+
+    #[test]
+    fn test_rw() {
+        ::tests::test_block_compression_rw(CompressionType::Xz(XzCompression::default()));
     }
 }

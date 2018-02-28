@@ -1,24 +1,51 @@
-use std::io::Read;
+use std::io::{Read, Write};
 
+use bzip2::Compression as BzCompression;
 use bzip2::read::BzDecoder;
+use bzip2::write::BzEncoder;
 
 use super::{
     Compression,
-    Bzip2Parameters,
 };
 
 
-pub struct Bzip2Compression;
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Bzip2Compression {
+    #[serde(default = "default_bzip_block_size")]
+    block_size: u8,
+}
 
 impl Bzip2Compression {
-    pub fn new(_params: &Bzip2Parameters) -> Bzip2Compression {
-        Bzip2Compression
+    /// `bzip2` has fixed enum levels for compression.
+    fn get_effective_compression(&self) -> BzCompression {
+        if i32::from(self.block_size) <= BzCompression::Fastest as i32 {
+            BzCompression::Fastest
+        } else if i32::from(self.block_size) <= BzCompression::Default as i32 {
+            BzCompression::Default
+        } else {
+            BzCompression::Best
+        }
     }
 }
 
-impl<'a, R: Read + 'a> Compression<'a, R> for Bzip2Compression {
-    fn decoder(&self, r: R) -> Box<Read + 'a> {
+fn default_bzip_block_size() -> u8 {8}
+
+impl Default for Bzip2Compression {
+    fn default() -> Bzip2Compression {
+        Bzip2Compression {
+            block_size: default_bzip_block_size(),
+        }
+    }
+}
+
+impl Compression for Bzip2Compression {
+    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a> {
         Box::new(BzDecoder::new(r))
+    }
+
+    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
+        Box::new(BzEncoder::new(w, self.get_effective_compression()))
     }
 }
 
@@ -51,6 +78,11 @@ mod tests {
     fn test_read_doc_spec_block() {
         ::tests::test_read_doc_spec_block(
             &TEST_BLOCK_I16_BZIP2[..],
-            CompressionType::Bzip2(Bzip2Parameters::default()));
+            CompressionType::Bzip2(Bzip2Compression::default()));
+    }
+
+    #[test]
+    fn test_rw() {
+        ::tests::test_block_compression_rw(CompressionType::Bzip2(Bzip2Compression::default()));
     }
 }

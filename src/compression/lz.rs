@@ -1,24 +1,84 @@
-use std::io::Read;
+use std::io::{Read, Result, Write};
 
-use lz4::Decoder;
+use lz4::{
+    BlockSize,
+    Decoder,
+    Encoder,
+    EncoderBuilder,
+};
 
 use super::{
     Compression,
-    Lz4Parameters,
 };
 
 
-pub struct Lz4Compression;
+// From: https://github.com/bozaro/lz4-rs/issues/9
+// Kludge to finish Lz4 encoder on Drop.
+struct Wrapper<W: Write> {
+    s: Option<Encoder<W>>,
+}
 
-impl Lz4Compression {
-    pub fn new(_params: &Lz4Parameters) -> Lz4Compression {
-        Lz4Compression
+impl<W: Write> Write for Wrapper<W> {
+    fn write(&mut self, buffer: &[u8]) -> Result<usize> {
+        self.s.as_mut().unwrap().write(buffer)
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        self.s.as_mut().unwrap().flush()
     }
 }
 
-impl<'a, R: Read + 'a> Compression<'a, R> for Lz4Compression {
-    fn decoder(&self, r: R) -> Box<Read + 'a> {
+impl<W: Write> Drop for Wrapper<W> {
+    fn drop(&mut self) {
+        if let Some(s) = self.s.take() {
+            s.finish();
+        }
+    }
+}
+
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Lz4Compression {
+    #[serde(default = "default_lz4_block_size")]
+    block_size: i32,
+}
+
+impl Lz4Compression {
+    /// `lz4` uses an enum for specifying block size, so choose the smallest
+    /// larger size from that enum.
+    fn get_effective_block_size(&self) -> BlockSize {
+        if self.block_size <= BlockSize::Max64KB.get_size() as i32 {
+            BlockSize::Max64KB
+        } else if self.block_size as usize <= BlockSize::Max256KB.get_size() {
+            BlockSize::Max256KB
+        } else if self.block_size as usize <= BlockSize::Max1MB.get_size() {
+            BlockSize::Max1MB
+        } else {
+            BlockSize::Max4MB
+        }
+    }
+}
+
+fn default_lz4_block_size() -> i32 {65_536}
+
+impl Default for Lz4Compression {
+    fn default() -> Lz4Compression {
+        Lz4Compression {
+            block_size: default_lz4_block_size(),
+        }
+    }
+}
+
+impl Compression for Lz4Compression {
+    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a> {
         Box::new(Decoder::new(r).expect("TODO: LZ4 returns a result here"))
+    }
+
+    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
+        let encoder = EncoderBuilder::new().block_size(self.get_effective_block_size()).build(w)
+            .expect("TODO");
+        Box::new(Wrapper {s: Some(encoder)})
     }
 }
 
@@ -47,6 +107,11 @@ mod tests {
     fn test_read_doc_spec_block() {
         ::tests::test_read_doc_spec_block(
             &TEST_BLOCK_I16_LZ4[..],
-            CompressionType::Lz4(Lz4Parameters::default()));
+            CompressionType::Lz4(Lz4Compression::default()));
+    }
+
+    #[test]
+    fn test_rw() {
+        ::tests::test_block_compression_rw(CompressionType::Lz4(Lz4Compression::default()));
     }
 }

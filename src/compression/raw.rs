@@ -1,18 +1,24 @@
-use std::io::Read;
+use std::io::{Read, Write};
 
 use super::Compression;
 
 
+#[derive(Serialize, Deserialize, PartialEq, Debug, Default)]
 pub struct RawCompression;
 
-impl<'a, R: Read + 'a> Compression<'a, R> for RawCompression {
-    fn decoder(&self, r: R) -> Box<Read + 'a> {
+impl Compression for RawCompression {
+    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a> {
         Box::new(r)
+    }
+
+    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
+        Box::new(w)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use compression::CompressionType;
 
     // Example from the n5 documentation spec.
@@ -32,6 +38,13 @@ mod tests {
 
     #[test]
     fn test_read_doc_spec_block() {
-        ::tests::test_read_doc_spec_block(&TEST_BLOCK_I16_RAW[..], CompressionType::Raw);
+        ::tests::test_read_doc_spec_block(
+            &TEST_BLOCK_I16_RAW[..],
+            CompressionType::Raw(RawCompression));
+    }
+
+    #[test]
+    fn test_rw() {
+        ::tests::test_block_compression_rw(CompressionType::Raw(RawCompression));
     }
 }
