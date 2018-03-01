@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use super::Compression;
 
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug, Default)]
 pub struct RawCompression;
 
 impl Compression for RawCompression {

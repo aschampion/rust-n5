@@ -8,7 +8,7 @@ use super::{
 };
 
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct XzCompression {
     #[serde(default = "default_xz_preset")]

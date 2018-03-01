@@ -18,7 +18,7 @@ pub trait Compression {
     fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a>;
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
 #[serde(tag = "type")]
 pub enum CompressionType {

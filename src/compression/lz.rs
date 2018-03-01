@@ -37,7 +37,7 @@ impl<W: Write> Drop for Wrapper<W> {
 }
 
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Lz4Compression {
     #[serde(default = "default_lz4_block_size")]

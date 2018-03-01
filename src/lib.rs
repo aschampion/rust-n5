@@ -144,6 +144,12 @@ pub enum DataType {
     FLOAT64,
 }
 
+pub trait TypeReflection<T> {
+    fn get_type_variant() -> Self;
+}
+
+// TODO: replace this with a generic inherent function and instead check that
+// dataset DataType is expected type (via `TypeReflection` trait).
 pub trait DataBlockCreator<T> {
     fn create_data_block(
         &self,
@@ -155,6 +161,12 @@ pub trait DataBlockCreator<T> {
 
 macro_rules! data_type_block_creator {
     ($d_name:ident, $d_type:ty) => {
+        impl TypeReflection<$d_type> for DataType {
+            fn get_type_variant() -> DataType {
+                DataType::$d_name
+            }
+        }
+
         impl DataBlockCreator<Vec<$d_type>> for DataType {
             fn create_data_block(
                 &self,
@@ -186,19 +198,6 @@ data_type_block_creator!(INT32, i32);
 data_type_block_creator!(INT64, i64);
 data_type_block_creator!(FLOAT32, f32);
 data_type_block_creator!(FLOAT64, f64);
-
-// impl DataType {
-//     fn create_data_block<T>(
-//         &self,
-//         block_size: Vec<i32>,
-//         grid_position: Vec<i64>,
-//         num_el: usize,
-//     ) -> Box<DataBlock<T>> {
-//         match *self {
-//             DataType::UINT8 =>
-//         }
-//     }
-// }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
