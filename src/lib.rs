@@ -40,7 +40,7 @@ pub mod filesystem;
 
 lazy_static! {
     static ref VERSION: Version = {
-        Version::new(1, 0, 0, "")
+        Version::new(2, 0, 2, "")
     };
 }
 

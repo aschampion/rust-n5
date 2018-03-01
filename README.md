@@ -2,7 +2,7 @@
 
 A (mostly pure) rust implementation of the [N5 "Not HDF5" n-dimensional tensor file system storage format](https://github.com/saalfeldlab/n5) created by the Saalfeld lab at Janelia Research Campus.
 
-**NOTE: THIS IMPLEMENTATION HAS NOT YET BEEN TESTED FOR COMPATIBILITY WITH JAVA N5 DIRECTORIES**
+Compatible with Java N5 Version 2.0.2.
 
 ## Differences from Java N5
 - Dataset paths are relative. The root path in a dataset is `""`, not `"/"`.
