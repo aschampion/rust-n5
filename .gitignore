@@ -1,4 +1,4 @@
-
+*.sublime-*
 /target
 **/*.rs.bk
 Cargo.lock
