@@ -1,3 +1,4 @@
+use std;
 use std::io::{Read, Write};
 
 
@@ -12,7 +13,7 @@ pub mod lz;
 pub mod xz;
 
 
-pub trait Compression {
+pub trait Compression : Default {
     fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a>;
 
     fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a>;
@@ -33,38 +34,21 @@ pub enum CompressionType {
     Xz(xz::XzCompression),
 }
 
-// impl CompressionType {
-//     pub fn get_reader<'a, R: Read + 'a>(&self) -> Box<Compression<'a, R>> {
-//         #[allow(unreachable_patterns)] // Ignore the default case.
-//         match *self {
-//             CompressionType::Raw => Box::new(raw::RawCompression),
+impl CompressionType {
+    pub fn new<T: Compression>() -> CompressionType
+            where CompressionType: std::convert::From<T> {
+        T::default().into()
+    }
+}
 
-//             #[cfg(feature = "bzip")]
-//             CompressionType::Bzip2(ref params) =>
-//                 Box::new(bzip::Bzip2Compression::new(params)),
-
-//             #[cfg(feature = "gzip")]
-//             CompressionType::Gzip(ref params) =>
-//                 Box::new(gzip::GzipCompression::new(params)),
-
-//             #[cfg(feature = "xz")]
-//             CompressionType::Xz(ref params) =>
-//                 Box::new(xz::XzCompression::new(params)),
-
-//             #[cfg(feature = "lz")]
-//             CompressionType::Lz4(ref params) =>
-//                 Box::new(lz::Lz4Compression::new(params)),
-
-//             // Default case to panic if the requested compression feature is not
-//             // enabled.
-//             _ => unimplemented!(),
-//         }
-//     }
-// }
+impl Default for CompressionType {
+    fn default() -> CompressionType {
+        CompressionType::new::<raw::RawCompression>()
+    }
+}
 
 impl Compression for CompressionType {
     fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a> {
-        #[allow(unreachable_patterns)] // Ignore the default case.
         match *self {
             CompressionType::Raw(ref c) => c.decoder(r),
 
@@ -79,15 +63,10 @@ impl Compression for CompressionType {
 
             #[cfg(feature = "lz")]
             CompressionType::Lz4(ref c) => c.decoder(r),
-
-            // Default case to panic if the requested compression feature is not
-            // enabled.
-            _ => unimplemented!(),
         }
     }
 
     fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
-        #[allow(unreachable_patterns)] // Ignore the default case.
         match *self {
             CompressionType::Raw(ref c) => c.encoder(w),
 
@@ -102,10 +81,46 @@ impl Compression for CompressionType {
 
             #[cfg(feature = "lz")]
             CompressionType::Lz4(ref c) => c.encoder(w),
-
-            // Default case to panic if the requested compression feature is not
-            // enabled.
-            _ => unimplemented!(),
         }
     }
 }
+
+impl std::fmt::Display for CompressionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", match *self {
+            CompressionType::Raw(_) => "Raw",
+
+            #[cfg(feature = "bzip")]
+            CompressionType::Bzip2(_) => "Bzip2",
+
+            #[cfg(feature = "gzip")]
+            CompressionType::Gzip(_) => "Gzip",
+
+            #[cfg(feature = "xz")]
+            CompressionType::Xz(_) => "Xz",
+
+            #[cfg(feature = "lz")]
+            CompressionType::Lz4(_) => "Lz4",
+        })
+    }
+}
+
+macro_rules! compression_from_impl {
+    ($variant:ident, $c_type:ty) => {
+        impl std::convert::From<$c_type> for CompressionType {
+            fn from(c: $c_type) -> Self {
+                CompressionType::$variant(c)
+            }
+        }
+    }
+}
+
+compression_from_impl!(Raw, raw::RawCompression);
+#[cfg(feature = "bzip")]
+compression_from_impl!(Bzip2, bzip::Bzip2Compression);
+#[cfg(feature = "gzip")]
+compression_from_impl!(Gzip, gzip::GzipCompression);
+#[cfg(feature = "xz")]
+compression_from_impl!(Xz, xz::XzCompression);
+#[cfg(feature = "lz")]
+compression_from_impl!(Lz4, lz::Lz4Compression);
