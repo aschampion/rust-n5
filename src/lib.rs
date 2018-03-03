@@ -130,7 +130,7 @@ pub trait N5Writer : N5Reader {
 }
 
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum DataType {
     UINT8,
@@ -199,7 +199,7 @@ data_type_block_creator!(INT64, i64);
 data_type_block_creator!(FLOAT32, f32);
 data_type_block_creator!(FLOAT64, f64);
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DatasetAttributes {
     dimensions: Vec<i64>,
@@ -221,6 +221,22 @@ impl DatasetAttributes {
             data_type,
             compression,
         }
+    }
+
+    pub fn get_dimensions(&self) -> &[i64] {
+        &self.dimensions
+    }
+
+    pub fn get_block_size(&self) -> &[i32] {
+        &self.block_size
+    }
+
+    pub fn get_data_type(&self) -> &DataType {
+        &self.data_type
+    }
+
+    pub fn get_compression(&self) -> &compression::CompressionType {
+        &self.compression
     }
 
     pub fn get_ndim(&self) -> usize {

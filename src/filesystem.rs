@@ -39,6 +39,7 @@ use ::{
 const ATTRIBUTES_FILE: &str = "attributes.json";
 
 
+#[derive(Clone)]
 pub struct N5Filesystem {
     base_path: PathBuf,
 }
