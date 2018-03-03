@@ -27,6 +27,7 @@ use std::io::{
 
 use byteorder::{
     BigEndian,
+    ByteOrder,
     ReadBytesExt,
     WriteBytesExt,
 };
@@ -178,8 +179,7 @@ macro_rules! data_type_block_creator {
                     DataType::$d_name => Some(Box::new(VecDataBlock::<$d_type>::new(
                         block_size,
                         grid_position,
-                        // Vec::<$d_type>::with_capacity(num_el),
-                        vec![0 as $d_type; num_el],
+                        vec![0. as $d_type; num_el],
                     ))),
                     _ => None,
                 }
@@ -275,8 +275,14 @@ macro_rules! vec_data_block_impl {
 
         impl WriteableDataBlock for VecDataBlock<$ty_name> {
             fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()> {
-                for v in &self.data {
-                    target.$bo_write_fn::<BigEndian>(*v)?;
+                const CHUNK: usize = 256;
+                let mut buf: [u8; CHUNK * std::mem::size_of::<$ty_name>()] =
+                    [0; CHUNK * std::mem::size_of::<$ty_name>()];
+
+                for c in self.data.chunks(CHUNK) {
+                    let byte_len = c.len() * std::mem::size_of::<$ty_name>();
+                    BigEndian::$bo_write_fn(c, &mut buf[..byte_len]);
+                    target.write_all(&buf[..byte_len])?;
                 }
 
                 Ok(())
@@ -285,14 +291,14 @@ macro_rules! vec_data_block_impl {
     }
 }
 
-vec_data_block_impl!(u16, read_u16_into, write_u16);
-vec_data_block_impl!(u32, read_u32_into, write_u32);
-vec_data_block_impl!(u64, read_u64_into, write_u64);
-vec_data_block_impl!(i16, read_i16_into, write_i16);
-vec_data_block_impl!(i32, read_i32_into, write_i32);
-vec_data_block_impl!(i64, read_i64_into, write_i64);
-vec_data_block_impl!(f32, read_f32_into, write_f32);
-vec_data_block_impl!(f64, read_f64_into, write_f64);
+vec_data_block_impl!(u16, read_u16_into, write_u16_into);
+vec_data_block_impl!(u32, read_u32_into, write_u32_into);
+vec_data_block_impl!(u64, read_u64_into, write_u64_into);
+vec_data_block_impl!(i16, read_i16_into, write_i16_into);
+vec_data_block_impl!(i32, read_i32_into, write_i32_into);
+vec_data_block_impl!(i64, read_i64_into, write_i64_into);
+vec_data_block_impl!(f32, read_f32_into, write_f32_into);
+vec_data_block_impl!(f64, read_f64_into, write_f64_into);
 
 impl ReadableDataBlock for VecDataBlock<u8> {
     fn read_data(&mut self, source: &mut std::io::Read) -> std::io::Result<()> {
@@ -302,30 +308,25 @@ impl ReadableDataBlock for VecDataBlock<u8> {
 
 impl WriteableDataBlock for VecDataBlock<u8> {
     fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()> {
-        for v in &self.data {
-            target.write_u8(*v)?;
-        }
-
-        Ok(())
+        target.write_all(&self.data)
     }
 }
 
 impl ReadableDataBlock for VecDataBlock<i8> {
     fn read_data(&mut self, source: &mut std::io::Read) -> std::io::Result<()> {
-        for i in 0..self.data.len() {
-            self.data[i] = source.read_i8()?;
-        }
-        Ok(())
+        // Unsafe necessary here because we need a &mut [u8] to avoid doing
+        // individual reads to the i8 data. This is safe.
+        let data_ref = unsafe { &mut *(&mut self.data[..] as *mut [i8] as *mut [u8]) };
+        source.read_exact(data_ref)
     }
 }
 
 impl WriteableDataBlock for VecDataBlock<i8> {
     fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()> {
-        for v in &self.data {
-            target.write_i8(*v)?;
-        }
-
-        Ok(())
+        // Unsafe necessary here because we need a &mut [u8] to avoid doing
+        // individual writes from the i8 data. This is safe.
+        let data_ref = unsafe { &*(&self.data[..] as *const [i8] as *const [u8]) };
+        target.write_all(data_ref)
     }
 }
 
@@ -347,10 +348,6 @@ impl<T> DataBlock<Vec<T>> for VecDataBlock<T>
         self.data.len() as i32
     }
 }
-
-// pub trait BlockReader<T, B: DataBlock<T>, R: std::io::Read> {
-//     fn read(&mut B, buffer: R) -> std::io::Result<()>;
-// }
 
 
 pub trait DefaultBlockReader<T, R: std::io::Read> //:
