@@ -89,9 +89,7 @@ fn test_all_compressions<N5: N5Reader + N5Writer>(n: &N5) {
     test_all_types(n, &CompressionType::Xz(compression::xz::XzCompression::default()));
 }
 
-// Test is ignored by default because it can take up to a minute to run on debug.
 #[test]
-#[ignore]
 fn test_n5_filesystem() {
     let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
     let path_str = dir.path().to_str().unwrap();
