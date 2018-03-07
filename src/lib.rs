@@ -4,10 +4,16 @@ extern crate bzip2;
 #[cfg(feature = "gzip")]
 extern crate flate2;
 extern crate fs2;
+#[cfg(feature = "use_ndarray")]
+extern crate itertools;
 #[macro_use]
 extern crate lazy_static;
 #[cfg(feature = "lz")]
 extern crate lz4;
+#[cfg(feature = "use_ndarray")]
+extern crate ndarray;
+#[cfg(feature = "use_ndarray")]
+extern crate num_traits;
 extern crate serde;
 #[macro_use]
 extern crate serde_json;
@@ -20,6 +26,7 @@ extern crate regex;
 extern crate xz2;
 
 
+use std::cmp;
 use std::io::{
     Error,
     ErrorKind,
@@ -31,6 +38,8 @@ use byteorder::{
     ReadBytesExt,
     WriteBytesExt,
 };
+#[cfg(feature = "use_ndarray")]
+use itertools::Itertools;
 use serde::Serialize;
 
 use ::compression::Compression;
@@ -47,6 +56,21 @@ lazy_static! {
 
 const VERSION_ATTRIBUTE_KEY: &str = "n5";
 
+/// Specifes the extents of an axis-aligned bounding box.
+#[derive(Debug)]
+pub struct BoundingBox {
+    offset: Vec<i64>,
+    size: Vec<i64>,
+}
+
+impl BoundingBox {
+    pub fn new(offset: Vec<i64>, size: Vec<i64>) -> BoundingBox {
+        BoundingBox {
+            offset,
+            size,
+        }
+    }
+}
 
 pub trait N5Reader {
     fn get_version(&self) -> Result<Version, Error>;
@@ -68,6 +92,87 @@ pub trait N5Reader {
         grid_position: Vec<i64>,
     ) -> Result<Option<Box<DataBlock<Vec<T>>>>, Error>
         where DataType: DataBlockCreator<Vec<T>>;
+
+    /// Read an abitrary bounding box from an N5 volume in an ndarray, reading
+    /// blocks in serial as necessary.
+    #[cfg(feature = "use_ndarray")]
+    fn read_ndarray<T>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        bbox: &BoundingBox,
+    ) -> Result<ndarray::Array<T, ndarray::Dim<ndarray::IxDynImpl>>, Error>
+        where DataType: DataBlockCreator<Vec<T>>,
+              T: Clone + num_traits::identities::Zero {
+
+        use ndarray::{
+            Array,
+            IxDyn,
+            ShapeBuilder,
+            SliceInfo,
+        };
+
+        // TODO: Verbose vector math and lots of allocations.
+        let floor_coord = bbox.offset.iter()
+            .zip(&data_attrs.block_size)
+            .map(|(&o, &bs)| o / i64::from(bs));
+        let ceil_coord = bbox.offset.iter()
+            .zip(&bbox.size)
+            .zip(&data_attrs.block_size)
+            .map(|((&o, &s), &bs)| (o + s + i64::from(bs) - 1) / i64::from(bs));
+        let offset = Array::from_vec(bbox.offset.clone());
+        let size = Array::from_vec(bbox.size.clone());
+        let arr_end = &offset + &size;
+        let norm_block_size = Array::from_iter(data_attrs.block_size.iter().map(|n| i64::from(*n)));
+
+        let coord_iter = floor_coord.zip(ceil_coord)
+            .map(|(min, max)| min..max)
+            .multi_cartesian_product();
+
+        let arr_size: Vec<usize> = bbox.size.iter().map(|n| *n as usize).collect();
+        let arr_size_a = Array::from_iter(arr_size.iter().map(|n| *n as i64));
+        let mut arr = Array::zeros(arr_size);
+
+        for coord in coord_iter {
+            let block_opt = self.read_block(path_name, data_attrs, coord.clone())?;
+
+            if let Some(block) = block_opt {
+                let block_size = Array::from_iter(block.get_size().iter().map(|n| i64::from(*n)));
+                let block_size_usize: Vec<usize> = block.get_size().iter().map(|n| *n as usize).collect();
+                let coord_a = Array::from_vec(coord);
+
+                let block_start = &coord_a * &norm_block_size;
+                let block_end = &block_start + &block_size;
+                let block_min = (&offset - &block_start).mapv(|v| cmp::max(v, 0));
+                let block_max = block_size.clone() - (&block_end - &arr_end).mapv(|v| cmp::max(v, 0));
+
+                let arr_start = (&block_start - &offset).mapv(|v| cmp::max(v, 0));
+                let arr_end = arr_size_a.clone() - (&arr_end - &block_end).mapv(|v| cmp::max(v, 0));
+
+                let arr_slice: Vec<ndarray::SliceOrIndex> = arr_start.iter().zip(&arr_end)
+                    .map(|(&start, &end)| ndarray::SliceOrIndex::Slice {
+                        start: start as isize,
+                        end: Some(end as isize),
+                        step: 1,
+                    }).collect();
+                let mut arr_view = arr.slice_mut(SliceInfo::<_, IxDyn>::new(arr_slice).unwrap().as_ref());
+
+                let block_slice: Vec<ndarray::SliceOrIndex> = block_min.iter().zip(&block_max)
+                    .map(|(&start, &end)| ndarray::SliceOrIndex::Slice {
+                        start: start as isize,
+                        end: Some(end as isize),
+                        step: 1,
+                    }).collect();
+                let block_data = Array::from_shape_vec(block_size_usize.f(), block.get_data().clone())
+                    .expect("TODO: block ndarray failed");
+                let block_view = block_data.slice(SliceInfo::<_, IxDyn>::new(block_slice).unwrap().as_ref());
+
+                arr_view.assign(&block_view);
+            }
+        }
+
+        Ok(arr)
+    }
 
     /// List all groups (including datasets) in a group.
     fn list(&self, path_name: &str) -> Result<Vec<String>, Error>;
@@ -343,6 +448,12 @@ impl WriteableDataBlock for VecDataBlock<i8> {
         // individual writes from the i8 data. This is safe.
         let data_ref = unsafe { &*(&self.data[..] as *const [i8] as *const [u8]) };
         target.write_all(data_ref)
+    }
+}
+
+impl<T> Into<Vec<T>> for VecDataBlock<T> {
+    fn into(self) -> Vec<T> {
+        self.data
     }
 }
 
