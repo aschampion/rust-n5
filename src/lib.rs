@@ -253,6 +253,24 @@ pub enum DataType {
     FLOAT64,
 }
 
+impl DataType {
+    /// Boilerplate method for reflection of primitive type sizes.
+    pub fn size_of(&self) -> usize {
+        match *self {
+            DataType::UINT8 => std::mem::size_of::<u8>(),
+            DataType::UINT16 => std::mem::size_of::<u16>(),
+            DataType::UINT32 => std::mem::size_of::<u32>(),
+            DataType::UINT64 => std::mem::size_of::<u64>(),
+            DataType::INT8 => std::mem::size_of::<i8>(),
+            DataType::INT16 => std::mem::size_of::<i16>(),
+            DataType::INT32 => std::mem::size_of::<i32>(),
+            DataType::INT64 => std::mem::size_of::<i64>(),
+            DataType::FLOAT32 => std::mem::size_of::<f32>(),
+            DataType::FLOAT64 => std::mem::size_of::<f64>(),
+        }
+    }
+}
+
 pub trait TypeReflection<T> {
     fn get_type_variant() -> Self;
 }
