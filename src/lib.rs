@@ -90,8 +90,9 @@ pub trait N5Reader {
         path_name: &str,
         data_attrs: &DatasetAttributes,
         grid_position: Vec<i64>,
-    ) -> Result<Option<Box<DataBlock<Vec<T>>>>, Error>
-        where DataType: DataBlockCreator<Vec<T>>;
+    ) -> Result<Option<VecDataBlock<T>>, Error>
+        where DataType: DataBlockCreator<T>,
+              VecDataBlock<T>: DataBlock<T>;
 
     /// Read an abitrary bounding box from an N5 volume in an ndarray, reading
     /// blocks in serial as necessary.
@@ -102,7 +103,8 @@ pub trait N5Reader {
         data_attrs: &DatasetAttributes,
         bbox: &BoundingBox,
     ) -> Result<ndarray::Array<T, ndarray::Dim<ndarray::IxDynImpl>>, Error>
-        where DataType: DataBlockCreator<Vec<T>>,
+        where DataType: DataBlockCreator<T>,
+              VecDataBlock<T>: DataBlock<T>,
               T: Clone + num_traits::identities::Zero {
 
         use ndarray::{
@@ -163,7 +165,8 @@ pub trait N5Reader {
                         end: Some(end as isize),
                         step: 1,
                     }).collect();
-                let block_data = Array::from_shape_vec(block_size_usize.f(), block.get_data().clone())
+                // TODO: not yet clear why this fortran order is necessary.
+                let block_data = Array::from_shape_vec(block_size_usize.f(), block.into())
                     .expect("TODO: block ndarray failed");
                 let block_view = block_data.slice(SliceInfo::<_, IxDyn>::new(block_slice).unwrap().as_ref());
 
@@ -226,11 +229,11 @@ pub trait N5Writer : N5Reader {
         self.set_dataset_attributes(path_name, data_attrs)
     }
 
-    fn write_block<T>(
+    fn write_block<T, B: DataBlock<T>>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
-        block: Box<DataBlock<T>>,
+        block: &B,
     ) -> Result<(), Error>;
 }
 
@@ -262,7 +265,7 @@ pub trait DataBlockCreator<T> {
         block_size: Vec<i32>,
         grid_position: Vec<i64>,
         num_el: usize,
-    ) -> Option<Box<DataBlock<T>>>;
+    ) -> Option<VecDataBlock<T>>;
 }
 
 macro_rules! data_type_block_creator {
@@ -273,19 +276,19 @@ macro_rules! data_type_block_creator {
             }
         }
 
-        impl DataBlockCreator<Vec<$d_type>> for DataType {
+        impl DataBlockCreator<$d_type> for DataType {
             fn create_data_block(
                 &self,
                 block_size: Vec<i32>,
                 grid_position: Vec<i64>,
                 num_el: usize,
-            ) -> Option<Box<DataBlock<Vec<$d_type>>>> {
+            ) -> Option<VecDataBlock<$d_type>> {
                 match *self {
-                    DataType::$d_name => Some(Box::new(VecDataBlock::<$d_type>::new(
+                    DataType::$d_name => Some(VecDataBlock::<$d_type>::new(
                         block_size,
                         grid_position,
                         vec![0. as $d_type; num_el],
-                    ))),
+                    )),
                     _ => None,
                 }
             }
@@ -360,12 +363,12 @@ pub trait WriteableDataBlock {
     fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()>;
 }
 
-pub trait DataBlock<T> : ReadableDataBlock + WriteableDataBlock {
+pub trait DataBlock<T> : Into<Vec<T>> + ReadableDataBlock + WriteableDataBlock {
     fn get_size(&self) -> &Vec<i32>;
 
     fn get_grid_position(&self) -> &Vec<i64>;
 
-    fn get_data(&self) -> &T;
+    fn get_data(&self) -> &Vec<T>;
 
     fn get_num_elements(&self) -> i32; // TODO: signed sizes feel awful.
 }
@@ -457,7 +460,7 @@ impl<T> Into<Vec<T>> for VecDataBlock<T> {
     }
 }
 
-impl<T> DataBlock<Vec<T>> for VecDataBlock<T>
+impl<T> DataBlock<T> for VecDataBlock<T>
         where VecDataBlock<T>: ReadableDataBlock + WriteableDataBlock {
     fn get_size(&self) -> &Vec<i32> {
         &self.size
@@ -479,12 +482,13 @@ impl<T> DataBlock<Vec<T>> for VecDataBlock<T>
 
 pub trait DefaultBlockReader<T, R: std::io::Read> //:
         // BlockReader<Vec<T>, VecDataBlock<T>, R>
-        where DataType: DataBlockCreator<Vec<T>> {
+        where DataType: DataBlockCreator<T> {
     fn read_block(
         mut buffer: R,
         data_attrs: &DatasetAttributes,
         grid_position: Vec<i64>,
-    ) -> std::io::Result<Box<DataBlock<Vec<T>>>> {
+    ) -> std::io::Result<VecDataBlock<T>>
+            where VecDataBlock<T>: DataBlock<T> {
         let mode = buffer.read_i16::<BigEndian>()?;
         let ndim = buffer.read_i16::<BigEndian>()?;
         let mut dims = vec![0; ndim as usize];
@@ -495,7 +499,7 @@ pub trait DefaultBlockReader<T, R: std::io::Read> //:
             _ => return Err(Error::new(ErrorKind::InvalidData, "Unsupported block mode"))
         };
 
-        let mut block: Box<DataBlock<Vec<T>>> = data_attrs.data_type.create_data_block(
+        let mut block: VecDataBlock<T> = data_attrs.data_type.create_data_block(
             dims,
             grid_position,
             num_el as usize).unwrap();
@@ -506,11 +510,11 @@ pub trait DefaultBlockReader<T, R: std::io::Read> //:
     }
 }
 
-pub trait DefaultBlockWriter<T, W: std::io::Write> {
+pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
     fn write_block(
         mut buffer: W,
         data_attrs: &DatasetAttributes,
-        block: Box<DataBlock<T>>,
+        block: &B,
     ) -> std::io::Result<()> {
         let mode: i16 = if block.get_num_elements() == block.get_size().iter().product::<i32>()
             {1} else {0};
@@ -536,8 +540,8 @@ pub trait DefaultBlockWriter<T, W: std::io::Write> {
 // `DefaultBlockReader`, etc.
 struct Foo;
 impl<T, R: std::io::Read> DefaultBlockReader<T, R> for Foo
-        where DataType: DataBlockCreator<Vec<T>> {}
-impl<T, W: std::io::Write> DefaultBlockWriter<T, W> for Foo {}
+        where DataType: DataBlockCreator<T> {}
+impl<T, W: std::io::Write, B: DataBlock<T>> DefaultBlockWriter<T, W, B> for Foo {}
 
 
 /// A semantic version.
@@ -662,18 +666,18 @@ pub(crate) mod tests {
             compression: compression,
         };
         let block_data: Vec<i32> = (0..125_i32).collect();
-        let block_in = Box::new(VecDataBlock::new(
+        let block_in = VecDataBlock::new(
             data_attrs.block_size.clone(),
             vec![0, 0, 0],
-            block_data.clone()));
+            block_data.clone());
 
         let mut inner: Vec<u8> = Vec::new();
         {
             let w_buff = Cursor::new(&mut inner);
-            <Foo as DefaultBlockWriter<Vec<i32>, std::io::Cursor<_>>>::write_block(
+            <Foo as DefaultBlockWriter<i32, std::io::Cursor<_>, _>>::write_block(
                 w_buff,
                 &data_attrs,
-                block_in).expect("write_block failed");
+                &block_in).expect("write_block failed");
         }
 
         let block_out = <Foo as DefaultBlockReader<i32, _>>::read_block(

@@ -12,7 +12,6 @@ Compatible with Java N5 Version 2.0.2.
 - No remove for datasets/groups
 - Easy import prelude
 - Docs
-- Mixture of `T` parameter as scalar type versus `Vec<T>`
 - Kludge `Foo` type
 - Generally, direct translation from Java is unidiomatic and a mess of boxes
 

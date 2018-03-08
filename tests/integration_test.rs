@@ -7,6 +7,7 @@ use rand::Rng;
 
 use n5::{
     DatasetAttributes,
+    DataBlock,
     DataType,
     N5Reader,
     N5Writer,
@@ -25,7 +26,7 @@ fn test_read_write<T: 'static + std::fmt::Debug + rand::Rand + Clone + PartialEq
         compression: &CompressionType,
 ) where DataType: TypeReflection<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock,
-        DataType: n5::DataBlockCreator<std::vec::Vec<T>> {
+        DataType: n5::DataBlockCreator<T> {
     let block_size = vec![44i32, 33, 22];
     let data_attrs = DatasetAttributes::new(
         vec![100, 200, 300],
@@ -41,16 +42,16 @@ fn test_read_write<T: 'static + std::fmt::Debug + rand::Rand + Clone + PartialEq
         block_data.push(rng.gen());
     }
 
-    let block_in = Box::new(VecDataBlock::new(
+    let block_in = VecDataBlock::new(
         block_size,
         vec![0, 0, 0],
-        block_data.clone()));
+        block_data.clone());
 
     let path_name = "test/dataset/group";
 
     n.create_dataset(path_name, &data_attrs)
         .expect("Failed to create dataset");
-    n.write_block(path_name, &data_attrs, block_in)
+    n.write_block(path_name, &data_attrs, &block_in)
         .expect("Failed to write block");
 
     let block_out = n.read_block::<T>(path_name, &data_attrs, vec![0, 0, 0])

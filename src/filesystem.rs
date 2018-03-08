@@ -32,6 +32,7 @@ use ::{
     DefaultBlockWriter,
     N5Reader,
     N5Writer,
+    VecDataBlock,
     Version,
 };
 
@@ -169,8 +170,9 @@ impl N5Reader for N5Filesystem {
         path_name: &str,
         data_attrs: &DatasetAttributes,
         grid_position: Vec<i64>
-    ) -> Result<Option<Box<DataBlock<Vec<T>>>>>
-            where DataType: DataBlockCreator<Vec<T>> {
+    ) -> Result<Option<VecDataBlock<T>>>
+            where DataType: DataBlockCreator<T>,
+                  VecDataBlock<T>: DataBlock<T> {
         let block_file = self.get_data_block_path(path_name, &grid_position)?;
         if block_file.is_file() {
             let file = File::open(block_file)?;
@@ -263,11 +265,11 @@ impl N5Writer for N5Filesystem {
         fs::create_dir_all(path)
     }
 
-    fn write_block<T>(
+    fn write_block<T, B: DataBlock<T>>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
-        block: Box<DataBlock<T>>,
+        block: &B,
     ) -> Result<()> {
         let path = self.get_data_block_path(path_name, block.get_grid_position())?;
         fs::create_dir_all(path.parent().expect("TODO: root block path?"))?;
@@ -280,7 +282,7 @@ impl N5Writer for N5Filesystem {
         file.lock_exclusive()?;
 
         let buffer = BufWriter::new(file);
-        <::Foo as DefaultBlockWriter<T, _>>::write_block(
+        <::Foo as DefaultBlockWriter<T, _, _>>::write_block(
                 buffer,
                 data_attrs,
                 block)
@@ -360,14 +362,14 @@ mod tests {
             ::compression::CompressionType::Raw(::compression::raw::RawCompression::default()),
         );
         let block_data: Vec<i32> = (0..125_i32).collect();
-        let block_in = Box::new(::VecDataBlock::new(
+        let block_in = ::VecDataBlock::new(
             data_attrs.block_size.clone(),
             vec![0, 0, 0],
-            block_data.clone()));
+            block_data.clone());
 
         create.create_dataset("foo/bar", &data_attrs)
             .expect("Failed to create dataset");
-        create.write_block("foo/bar", &data_attrs, block_in)
+        create.write_block("foo/bar", &data_attrs, &block_in)
             .expect("Failed to write block");
 
         let read = N5Filesystem::open(path_str)

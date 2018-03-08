@@ -111,11 +111,11 @@ fn write<T, N5>(
                 let pn = path_name.clone();
                 let da = data_attrs.clone();
                 all_jobs.push(pool.spawn_fn(move || {
-                    let block_in = Box::new(VecDataBlock::new(
+                    let block_in = VecDataBlock::new(
                         bs,
                         vec![x, y, z],
-                        bd));
-                    ni.write_block(&pn, &da, block_in)
+                        bd);
+                    ni.write_block(&pn, &da, &block_in)
                         .expect("Failed to write block");
                     Ok(0)
                 }));
