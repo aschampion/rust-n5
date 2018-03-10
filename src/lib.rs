@@ -22,6 +22,7 @@ extern crate serde_derive;
 #[cfg(test)]
 extern crate tempdir;
 extern crate regex;
+extern crate walkdir;
 #[cfg(feature = "xz")]
 extern crate xz2;
 
@@ -231,6 +232,19 @@ pub trait N5Writer : N5Reader {
         self.create_group(path_name)?;
         self.set_dataset_attributes(path_name, data_attrs)
     }
+
+    /// Remove the N5 container.
+    fn remove_all(&self) -> Result<(), Error> {
+        self.remove("")
+    }
+
+    /// Remove a group or dataset (directory and all contained files).
+    ///
+    /// This will wait on locks acquired by other writers or readers.
+    fn remove(
+        &self,
+        path_name: &str,
+    ) -> Result<(), Error>;
 
     fn write_block<T, B: DataBlock<T>>(
         &self,

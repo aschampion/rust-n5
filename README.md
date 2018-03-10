@@ -9,7 +9,6 @@ Compatible with Java N5 Version 2.0.2.
 - Dataset paths are more strict. Calling methods with paths outside the dataset, e.g., `".."`, will return a `Result::Err`.
 
 ## Major TODOs
-- No remove for datasets/groups
 - Easy import prelude
 - Docs
 - Kludge `Foo` type

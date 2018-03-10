@@ -60,7 +60,7 @@ fn test_read_write<T: 'static + std::fmt::Debug + rand::Rand + Clone + PartialEq
         .expect("Block is empty");
     assert_eq!(block_out.get_data(), &block_data);
 
-    // TODO: remove
+    n.remove(path_name).unwrap();
 }
 
 fn test_all_types<N5: N5Reader + N5Writer>(

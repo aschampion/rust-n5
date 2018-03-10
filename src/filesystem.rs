@@ -22,6 +22,7 @@ use serde_json::{
     self,
     Value,
 };
+use walkdir::WalkDir;
 
 use ::{
     DataBlock,
@@ -263,6 +264,27 @@ impl N5Writer for N5Filesystem {
     fn create_group(&self, path_name: &str) -> Result<()> {
         let path = self.get_path(path_name)?;
         fs::create_dir_all(path)
+    }
+
+    fn remove(
+        &self,
+        path_name: &str,
+    ) -> Result<()> {
+        let path = self.get_path(path_name)?;
+
+        for entry in WalkDir::new(path).contents_first(true) {
+            let entry = entry?;
+
+            if entry.file_type().is_dir() {
+                fs::remove_dir(entry.path())?;
+            } else {
+                let file = File::open(entry.path())?;
+                file.lock_exclusive()?;
+                fs::remove_file(entry.path())?;
+            }
+        }
+
+        Ok(())
     }
 
     fn write_block<T, B: DataBlock<T>>(
