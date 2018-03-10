@@ -1,6 +1,6 @@
 [package]
 name = "n5"
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT/Apache-2.0"
 authors = ["Andrew Champion <andrew.champion@gmail.com>"]
 description = "Rust implementation of the N5 tensor file system format"
@@ -45,6 +45,3 @@ image = { version = "0.18", default-features = false, features = ["tiff"] }
 rand = "0.4"
 rayon = "1"
 tempdir = "0.3"
-
-[patch.crates-io]
-image = { git = "https://github.com/aschampion/image", branch = "issues/tiff-multi-image" }
