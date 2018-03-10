@@ -7,7 +7,7 @@ description = "Rust implementation of the N5 tensor file system format"
 readme = "README.md"
 repository = "https://github.com/aschampion/rust-n5"
 keywords = ["tensor"]
-categories = ["science"]
+categories = ["filesystem", "science"]
 
 [features]
 default = ["bzip", "gzip", "lz", "use_ndarray", "xz"]

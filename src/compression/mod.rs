@@ -1,3 +1,5 @@
+//! Compression for block voxel data.
+
 use std;
 use std::io::{Read, Write};
 
@@ -13,12 +15,14 @@ pub mod lz;
 pub mod xz;
 
 
+/// Common interface for compressing writers and decompressing readers.
 pub trait Compression : Default {
     fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a>;
 
     fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a>;
 }
 
+/// Enumeration of known compression schemes.
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "lowercase")]
 #[serde(tag = "type")]

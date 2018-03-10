@@ -1,3 +1,7 @@
+//! Interfaces for the [N5 "Not HDF5" n-dimensional tensor file system storage
+//! format](https://github.com/saalfeldlab/n5) created by the Saalfeld lab at
+//! Janelia Research Campus.
+
 extern crate byteorder;
 #[cfg(feature = "bzip")]
 extern crate bzip2;
@@ -55,6 +59,7 @@ lazy_static! {
     };
 }
 
+/// Key name for the version attribute in the container root.
 const VERSION_ATTRIBUTE_KEY: &str = "n5";
 
 /// Specifes the extents of an axis-aligned bounding box.
@@ -73,9 +78,12 @@ impl BoundingBox {
     }
 }
 
+/// Non-mutating operations on N5 containers.
 pub trait N5Reader {
+    /// Get the N5 specification version of the container.
     fn get_version(&self) -> Result<Version, Error>;
 
+    /// Get attributes for a dataset.
     fn get_dataset_attributes(&self, path_name: &str) -> Result<DatasetAttributes, Error>;
 
     /// Test whether a group or dataset exists.
@@ -86,6 +94,7 @@ pub trait N5Reader {
         self.exists(path_name) && self.get_dataset_attributes(path_name).is_ok()
     }
 
+    /// Read a single dataset block into a linear vec.
     fn read_block<T>(
         &self,
         path_name: &str,
@@ -188,6 +197,7 @@ pub trait N5Reader {
     fn list_attributes(&self, path_name: &str) -> Result<serde_json::Value, Error>;
 }
 
+/// Mutating operations on N5 containers.
 pub trait N5Writer : N5Reader {
     /// Set a single attribute.
     fn set_attribute<T: Serialize>(
@@ -224,6 +234,8 @@ pub trait N5Writer : N5Reader {
     /// Create a group (directory).
     fn create_group(&self, path_name: &str) -> Result<(), Error>;
 
+    /// Create a dataset. This will create the dataset group and attributes,
+    /// but not populate any block data.
     fn create_dataset(
         &self,
         path_name: &str,
@@ -255,6 +267,7 @@ pub trait N5Writer : N5Reader {
 }
 
 
+/// Data types representable in N5.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum DataType {
@@ -288,6 +301,7 @@ impl DataType {
     }
 }
 
+/// Reflect rust types to type values.
 pub trait TypeReflection<T> {
     fn get_type_variant() -> Self;
 }
@@ -342,12 +356,17 @@ data_type_block_creator!(INT64, i64);
 data_type_block_creator!(FLOAT32, f32);
 data_type_block_creator!(FLOAT64, f64);
 
+/// Attributes of a tensor dataset.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DatasetAttributes {
+    /// Dimensions of the entire dataset, in voxels.
     dimensions: Vec<i64>,
+    /// Size of each block, in voxels.
     block_size: Vec<i32>,
+    /// Element data type.
     data_type: DataType,
+    /// Compression scheme for voxel data in each block.
     compression: compression::CompressionType,
 }
 
@@ -398,6 +417,9 @@ pub trait WriteableDataBlock {
     fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()>;
 }
 
+/// Common interface for data blocks of element (rust) type `T`.
+///
+/// To enable custom types to be written to N5 volumes, implement this trait.
 pub trait DataBlock<T> : Into<Vec<T>> + ReadableDataBlock + WriteableDataBlock {
     fn get_size(&self) -> &Vec<i32>;
 
@@ -408,6 +430,8 @@ pub trait DataBlock<T> : Into<Vec<T>> + ReadableDataBlock + WriteableDataBlock {
     fn get_num_elements(&self) -> i32; // TODO: signed sizes feel awful.
 }
 
+/// A linear vector storing a data block. All read data blocks are returned as
+/// this type.
 pub struct VecDataBlock<T> {
     size: Vec<i32>,
     grid_position: Vec<i64>,
@@ -515,8 +539,8 @@ impl<T> DataBlock<T> for VecDataBlock<T>
 }
 
 
-pub trait DefaultBlockReader<T, R: std::io::Read> //:
-        // BlockReader<Vec<T>, VecDataBlock<T>, R>
+/// Reads blocks from rust readers.
+pub trait DefaultBlockReader<T, R: std::io::Read>
         where DataType: DataBlockCreator<T> {
     fn read_block(
         mut buffer: R,
@@ -545,6 +569,7 @@ pub trait DefaultBlockReader<T, R: std::io::Read> //:
     }
 }
 
+/// Writes blocks to rust writers.
 pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
     fn write_block(
         mut buffer: W,
@@ -573,10 +598,10 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
 // TODO: needed because cannot invoke type parameterized static trait methods
 // directly from trait name in Rust. Symptom of design problems with
 // `DefaultBlockReader`, etc.
-struct Foo;
-impl<T, R: std::io::Read> DefaultBlockReader<T, R> for Foo
+struct DefaultBlock;
+impl<T, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock
         where DataType: DataBlockCreator<T> {}
-impl<T, W: std::io::Write, B: DataBlock<T>> DefaultBlockWriter<T, W, B> for Foo {}
+impl<T, W: std::io::Write, B: DataBlock<T>> DefaultBlockWriter<T, W, B> for DefaultBlock {}
 
 
 /// A semantic version.
@@ -683,7 +708,7 @@ pub(crate) mod tests {
             compression: compression,
         };
 
-        let block = <Foo as DefaultBlockReader<i16, std::io::Cursor<&[u8]>>>::read_block(
+        let block = <DefaultBlock as DefaultBlockReader<i16, std::io::Cursor<&[u8]>>>::read_block(
             buff,
             &data_attrs,
             vec![0, 0, 0]).expect("read_block failed");
@@ -709,13 +734,13 @@ pub(crate) mod tests {
         let mut inner: Vec<u8> = Vec::new();
         {
             let w_buff = Cursor::new(&mut inner);
-            <Foo as DefaultBlockWriter<i32, std::io::Cursor<_>, _>>::write_block(
+            <DefaultBlock as DefaultBlockWriter<i32, std::io::Cursor<_>, _>>::write_block(
                 w_buff,
                 &data_attrs,
                 &block_in).expect("write_block failed");
         }
 
-        let block_out = <Foo as DefaultBlockReader<i32, _>>::read_block(
+        let block_out = <DefaultBlock as DefaultBlockReader<i32, _>>::read_block(
             &inner[..],
             &data_attrs,
             vec![0, 0, 0]).expect("read_block failed");

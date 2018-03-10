@@ -1,3 +1,5 @@
+//! A filesystem-backed N5 container.
+
 use std::fs::{
     self,
     File,
@@ -38,15 +40,18 @@ use ::{
 };
 
 
+/// Name of the attributes file stored in the container root and dataset dirs.
 const ATTRIBUTES_FILE: &str = "attributes.json";
 
 
+/// A filesystem-backed N5 container.
 #[derive(Clone)]
 pub struct N5Filesystem {
     base_path: PathBuf,
 }
 
 impl N5Filesystem {
+    /// Open an existing N5 container by path.
     pub fn open(base_path: &str) -> Result<N5Filesystem> {
         let reader = N5Filesystem {
             base_path: PathBuf::from(base_path),
@@ -63,6 +68,9 @@ impl N5Filesystem {
         Ok(reader)
     }
 
+    /// Open an existing N5 container by path or create one if none exists.
+    ///
+    /// Note this will update the version attribute for existing containers.
     pub fn open_or_create(base_path: &str) -> Result<N5Filesystem> {
         let reader = N5Filesystem {
             base_path: PathBuf::from(base_path),
@@ -179,7 +187,7 @@ impl N5Reader for N5Filesystem {
             let file = File::open(block_file)?;
             file.lock_shared()?;
             let reader = BufReader::new(file);
-            Ok(Some(<::Foo as DefaultBlockReader<T, _>>::read_block(
+            Ok(Some(<::DefaultBlock as DefaultBlockReader<T, _>>::read_block(
                 reader,
                 data_attrs,
                 grid_position)?))
@@ -304,7 +312,7 @@ impl N5Writer for N5Filesystem {
         file.lock_exclusive()?;
 
         let buffer = BufWriter::new(file);
-        <::Foo as DefaultBlockWriter<T, _, _>>::write_block(
+        <::DefaultBlock as DefaultBlockWriter<T, _, _>>::write_block(
                 buffer,
                 data_attrs,
                 block)
