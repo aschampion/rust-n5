@@ -96,6 +96,8 @@ pub trait N5Reader {
 
     /// Read an abitrary bounding box from an N5 volume in an ndarray, reading
     /// blocks in serial as necessary.
+    ///
+    /// Assumes blocks are column-major and returns a column-major ndarray.
     #[cfg(feature = "use_ndarray")]
     fn read_ndarray<T>(
         &self,
@@ -133,7 +135,7 @@ pub trait N5Reader {
 
         let arr_size: Vec<usize> = bbox.size.iter().map(|n| *n as usize).collect();
         let arr_size_a = Array::from_iter(arr_size.iter().map(|n| *n as i64));
-        let mut arr = Array::zeros(arr_size);
+        let mut arr = Array::zeros(arr_size.f());
 
         for coord in coord_iter {
             let block_opt = self.read_block(path_name, data_attrs, coord.clone())?;
@@ -165,7 +167,8 @@ pub trait N5Reader {
                         end: Some(end as isize),
                         step: 1,
                     }).collect();
-                // TODO: not yet clear why this fortran order is necessary.
+
+                // N5 datasets are stored f-order/column-major.
                 let block_data = Array::from_shape_vec(block_size_usize.f(), block.into())
                     .expect("TODO: block ndarray failed");
                 let block_view = block_data.slice(SliceInfo::<_, IxDyn>::new(block_slice).unwrap().as_ref());
@@ -520,7 +523,7 @@ pub trait DefaultBlockReader<T, R: std::io::Read> //:
         let mut block: VecDataBlock<T> = data_attrs.data_type.create_data_block(
             dims,
             grid_position,
-            num_el as usize).unwrap();
+            num_el as usize).expect("Attempt to create data block for wrong type.");
         let mut decompressed = data_attrs.compression.decoder(buffer);
         block.read_data(&mut decompressed)?;
 
