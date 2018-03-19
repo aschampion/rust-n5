@@ -18,16 +18,7 @@ n5 = "0.2"
 ```rust
 extern crate n5;
 
-use n5::{
-    DatasetAttributes,
-    DataBlock,
-    DataType,
-    N5Reader,
-    N5Writer,
-    VecDataBlock
-};
-use n5::compression::CompressionType;
-use n5::filesystem::N5Filesystem;
+use n5::prelude::*;
 
 fn n5_roundtrip(root_path: &str) -> std::io::Result<()> {
     let n = N5Filesystem::open_or_create(root_path)?;
@@ -65,7 +56,6 @@ fn main() {
 ```
 
 ## Major TODOs
-- Easy import prelude
 - Kludge `DefaultBlock` type
 - Generally, direct translation from Java is unidiomatic and a mess of boxes
 

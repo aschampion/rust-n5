@@ -51,6 +51,7 @@ use ::compression::Compression;
 
 pub mod compression;
 pub mod filesystem;
+pub mod prelude;
 
 
 lazy_static! {

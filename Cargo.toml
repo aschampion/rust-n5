@@ -45,3 +45,6 @@ image = { version = "0.18", default-features = false, features = ["tiff"] }
 rand = "0.4"
 rayon = "1"
 tempdir = "0.3"
+
+[patch.crates-io]
+image = { git = "https://github.com/aschampion/image", branch = "issues/tiff-multi-image" }

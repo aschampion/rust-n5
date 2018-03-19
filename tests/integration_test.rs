@@ -5,21 +5,7 @@ extern crate tempdir;
 
 use rand::Rng;
 
-use n5::{
-    BoundingBox,
-    DatasetAttributes,
-    DataBlock,
-    DataType,
-    N5Reader,
-    N5Writer,
-    TypeReflection,
-    VecDataBlock,
-};
-use n5::compression::{
-    self,
-    CompressionType,
-};
-use n5::filesystem::N5Filesystem;
+use n5::prelude::*;
 
 
 fn test_read_write<T: 'static + std::fmt::Debug + rand::Rand + Clone + PartialEq, N5: N5Reader + N5Writer>(
