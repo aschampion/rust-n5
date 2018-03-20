@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn test_read_doc_spec_block() {
         ::tests::test_read_doc_spec_block(
-            &TEST_BLOCK_I16_GZIP[..],
+            TEST_BLOCK_I16_GZIP.as_ref(),
             CompressionType::Gzip(GzipCompression::default()));
     }
 

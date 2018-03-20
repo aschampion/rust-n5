@@ -500,7 +500,7 @@ impl ReadableDataBlock for VecDataBlock<i8> {
     fn read_data(&mut self, source: &mut std::io::Read) -> std::io::Result<()> {
         // Unsafe necessary here because we need a &mut [u8] to avoid doing
         // individual reads to the i8 data. This is safe.
-        let data_ref = unsafe { &mut *(&mut self.data[..] as *mut [i8] as *mut [u8]) };
+        let data_ref = unsafe { &mut *(self.data.as_mut() as *mut [i8] as *mut [u8]) };
         source.read_exact(data_ref)
     }
 }
@@ -509,7 +509,7 @@ impl WriteableDataBlock for VecDataBlock<i8> {
     fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()> {
         // Unsafe necessary here because we need a &mut [u8] to avoid doing
         // individual writes from the i8 data. This is safe.
-        let data_ref = unsafe { &*(&self.data[..] as *const [i8] as *const [u8]) };
+        let data_ref = unsafe { &*(self.data.as_ref() as *const [i8] as *const [u8]) };
         target.write_all(data_ref)
     }
 }

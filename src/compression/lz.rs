@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn test_read_doc_spec_block() {
         ::tests::test_read_doc_spec_block(
-            &TEST_BLOCK_I16_LZ4[..],
+            TEST_BLOCK_I16_LZ4.as_ref(),
             CompressionType::Lz4(Lz4Compression::default()));
     }
 

@@ -70,7 +70,7 @@ mod tests {
     #[test]
     fn test_read_doc_spec_block() {
         ::tests::test_read_doc_spec_block(
-            &TEST_BLOCK_I16_XZ[..],
+            TEST_BLOCK_I16_XZ.as_ref(),
             CompressionType::Xz(XzCompression::default()));
     }
 

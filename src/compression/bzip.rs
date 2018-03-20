@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn test_read_doc_spec_block() {
         ::tests::test_read_doc_spec_block(
-            &TEST_BLOCK_I16_BZIP2[..],
+            TEST_BLOCK_I16_BZIP2.as_ref(),
             CompressionType::Bzip2(Bzip2Compression::default()));
     }
 

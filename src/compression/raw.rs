@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_read_doc_spec_block() {
         ::tests::test_read_doc_spec_block(
-            &TEST_BLOCK_I16_RAW[..],
+            TEST_BLOCK_I16_RAW.as_ref(),
             CompressionType::Raw(RawCompression));
     }
 
