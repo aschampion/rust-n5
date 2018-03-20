@@ -20,3 +20,4 @@ script:
       cargo clippy --all -- -D warnings;
     fi'
   - cargo test --verbose
+  - cargo test --examples --verbose
