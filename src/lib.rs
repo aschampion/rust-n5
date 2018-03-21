@@ -411,11 +411,11 @@ impl DatasetAttributes {
 pub trait ReadableDataBlock {
     /// Unlike Java N5, read the stream directly into the block data instead
     /// of creating a copied byte buffer.
-    fn read_data(&mut self, source: &mut std::io::Read) -> std::io::Result<()>;
+    fn read_data<R: std::io::Read>(&mut self, source: R) -> std::io::Result<()>;
 }
 
 pub trait WriteableDataBlock {
-    fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()>;
+    fn write_data<W: std::io::Write>(&self, target: W) -> std::io::Result<()>;
 }
 
 /// Common interface for data blocks of element (rust) type `T`.
@@ -452,13 +452,13 @@ impl<T> VecDataBlock<T> {
 macro_rules! vec_data_block_impl {
     ($ty_name:ty, $bo_read_fn:ident, $bo_write_fn:ident) => {
         impl ReadableDataBlock for VecDataBlock<$ty_name> {
-            fn read_data(&mut self, source: &mut std::io::Read) -> std::io::Result<()> {
+            fn read_data<R: std::io::Read>(&mut self, mut source: R) -> std::io::Result<()> {
                 source.$bo_read_fn::<BigEndian>(&mut self.data)
             }
         }
 
         impl WriteableDataBlock for VecDataBlock<$ty_name> {
-            fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()> {
+            fn write_data<W: std::io::Write>(&self, mut target: W) -> std::io::Result<()> {
                 const CHUNK: usize = 256;
                 let mut buf: [u8; CHUNK * std::mem::size_of::<$ty_name>()] =
                     [0; CHUNK * std::mem::size_of::<$ty_name>()];
@@ -485,19 +485,19 @@ vec_data_block_impl!(f32, read_f32_into, write_f32_into);
 vec_data_block_impl!(f64, read_f64_into, write_f64_into);
 
 impl ReadableDataBlock for VecDataBlock<u8> {
-    fn read_data(&mut self, source: &mut std::io::Read) -> std::io::Result<()> {
+    fn read_data<R: std::io::Read>(&mut self, mut source: R) -> std::io::Result<()> {
         source.read_exact(&mut self.data)
     }
 }
 
 impl WriteableDataBlock for VecDataBlock<u8> {
-    fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()> {
+    fn write_data<W: std::io::Write>(&self, mut target: W) -> std::io::Result<()> {
         target.write_all(&self.data)
     }
 }
 
 impl ReadableDataBlock for VecDataBlock<i8> {
-    fn read_data(&mut self, source: &mut std::io::Read) -> std::io::Result<()> {
+    fn read_data<R: std::io::Read>(&mut self, mut source: R) -> std::io::Result<()> {
         // Unsafe necessary here because we need a &mut [u8] to avoid doing
         // individual reads to the i8 data. This is safe.
         let data_ref = unsafe { &mut *(self.data.as_mut() as *mut [i8] as *mut [u8]) };
@@ -506,7 +506,7 @@ impl ReadableDataBlock for VecDataBlock<i8> {
 }
 
 impl WriteableDataBlock for VecDataBlock<i8> {
-    fn write_data(&self, target: &mut std::io::Write) -> std::io::Result<()> {
+    fn write_data<W: std::io::Write>(&self, mut target: W) -> std::io::Result<()> {
         // Unsafe necessary here because we need a &mut [u8] to avoid doing
         // individual writes from the i8 data. This is safe.
         let data_ref = unsafe { &*(self.data.as_ref() as *const [i8] as *const [u8]) };
@@ -733,13 +733,11 @@ pub(crate) mod tests {
             block_data.clone());
 
         let mut inner: Vec<u8> = Vec::new();
-        {
-            let w_buff = Cursor::new(&mut inner);
-            <DefaultBlock as DefaultBlockWriter<i32, std::io::Cursor<_>, _>>::write_block(
-                w_buff,
-                &data_attrs,
-                &block_in).expect("write_block failed");
-        }
+
+        <DefaultBlock as DefaultBlockWriter<i32, _, _>>::write_block(
+            &mut inner,
+            &data_attrs,
+            &block_in).expect("write_block failed");
 
         let block_out = <DefaultBlock as DefaultBlockReader<i32, _>>::read_block(
             &inner[..],
