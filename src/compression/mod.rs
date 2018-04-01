@@ -5,6 +5,8 @@ use std::io::{Read, Write};
 
 
 pub mod raw;
+#[cfg(feature = "brotli")]
+pub mod brotli;
 #[cfg(feature = "bzip")]
 pub mod bzip;
 #[cfg(feature = "gzip")]
@@ -28,6 +30,8 @@ pub trait Compression : Default {
 #[serde(tag = "type")]
 pub enum CompressionType {
     Raw(raw::RawCompression),
+    #[cfg(feature = "brotli")]
+    Brotli2(brotli::Brotli2Compression),
     #[cfg(feature = "bzip")]
     Bzip2(bzip::Bzip2Compression),
     #[cfg(feature = "gzip")]
@@ -56,6 +60,9 @@ impl Compression for CompressionType {
         match *self {
             CompressionType::Raw(ref c) => c.decoder(r),
 
+            #[cfg(feature = "brotli")]
+            CompressionType::Brotli2(ref c) => c.decoder(r),
+
             #[cfg(feature = "bzip")]
             CompressionType::Bzip2(ref c) => c.decoder(r),
 
@@ -73,6 +80,9 @@ impl Compression for CompressionType {
     fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
         match *self {
             CompressionType::Raw(ref c) => c.encoder(w),
+
+            #[cfg(feature = "brotli")]
+            CompressionType::Brotli2(ref c) => c.encoder(w),
 
             #[cfg(feature = "bzip")]
             CompressionType::Bzip2(ref c) => c.encoder(w),
@@ -93,6 +103,9 @@ impl std::fmt::Display for CompressionType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", match *self {
             CompressionType::Raw(_) => "Raw",
+
+            #[cfg(feature = "brotli")]
+            CompressionType::Brotli2(_) => "Brotli2",
 
             #[cfg(feature = "bzip")]
             CompressionType::Bzip2(_) => "Bzip2",
@@ -120,6 +133,8 @@ macro_rules! compression_from_impl {
 }
 
 compression_from_impl!(Raw, raw::RawCompression);
+#[cfg(feature = "brotli")]
+compression_from_impl!(Brotli2, brotli::Brotli2Compression);
 #[cfg(feature = "bzip")]
 compression_from_impl!(Bzip2, bzip::Bzip2Compression);
 #[cfg(feature = "gzip")]

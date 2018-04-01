@@ -3,6 +3,8 @@
 //! Janelia Research Campus.
 
 extern crate byteorder;
+#[cfg(feature = "brotli")]
+extern crate brotli2;
 #[cfg(feature = "bzip")]
 extern crate bzip2;
 #[cfg(feature = "gzip")]
@@ -791,6 +793,36 @@ pub(crate) mod tests {
         ].into_iter().collect();
 
         assert_eq!(coords, expected);
+    }
+
+    /// Convenience method to print the block from the N5 spec as compressed by
+    /// a given compression.
+    #[allow(dead_code)]
+    pub(crate) fn test_write_doc_spec_block(
+        compression: compression::CompressionType,
+    ) {
+        let data_attrs = DatasetAttributes {
+            dimensions: vec![5, 6, 7],
+            block_size: vec![1, 2, 3],
+            data_type: DataType::INT16,
+            compression: compression,
+        };
+        let block_data: Vec<i16> = vec![1, 2, 3, 4, 5, 6];
+        let block_in = VecDataBlock::new(
+            data_attrs.block_size.clone(),
+            vec![0, 0, 0],
+            block_data.clone());
+
+        let mut inner: Vec<u8> = Vec::new();
+
+        <DefaultBlock as DefaultBlockWriter<i16, _, _>>::write_block(
+            &mut inner,
+            &data_attrs,
+            &block_in).expect("write_block failed");
+
+        for byte in &inner {
+            println!("0x{:02x} ", byte);
+        }
     }
 
     pub(crate) fn test_read_doc_spec_block(

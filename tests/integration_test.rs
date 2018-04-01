@@ -87,6 +87,8 @@ fn test_n5_filesystem_dims() {
 
 fn test_all_compressions<N5: N5Reader + N5Writer>(n: &N5) {
     test_all_types(n, &CompressionType::Raw(compression::raw::RawCompression::default()), 3);
+    #[cfg(feature = "brotli")]
+    test_all_types(n, &CompressionType::Brotli2(compression::brotli::Brotli2Compression::default()), 3);
     #[cfg(feature = "bzip")]
     test_all_types(n, &CompressionType::Bzip2(compression::bzip::Bzip2Compression::default()), 3);
     #[cfg(feature = "gzip")]

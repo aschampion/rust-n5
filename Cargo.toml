@@ -10,8 +10,9 @@ keywords = ["tensor"]
 categories = ["filesystem", "science"]
 
 [features]
-default = ["bzip", "filesystem", "gzip", "lz", "use_ndarray", "xz"]
+default = ["brotli", "bzip", "filesystem", "gzip", "lz", "use_ndarray", "xz"]
 
+brotli = ["brotli2"]
 bzip = ["bzip2"]
 filesystem = ["fs2", "walkdir"]
 gzip = ["flate2"]
@@ -27,6 +28,7 @@ serde_derive = "1.0"
 serde_json = "1.0"
 regex = "1.0"
 
+brotli2 = { version = "0.3", optional = true }
 bzip2 = { version = "0.3", optional = true }
 # Use pure-rust Gzip for convenience. TODO: evaluate libflate as alternative.
 flate2 = { version = "1.0", features = ["rust_backend"], default-features = false, optional = true }
