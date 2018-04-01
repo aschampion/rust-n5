@@ -578,7 +578,7 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
         block: &B,
     ) -> std::io::Result<()> {
         let mode: i16 = if block.get_num_elements() == block.get_size().iter().product::<i32>()
-            {1} else {0};
+            {0} else {1};
         buffer.write_i16::<BigEndian>(mode)?;
         buffer.write_i16::<BigEndian>(data_attrs.get_ndim() as i16)?;
         for i in block.get_size() {

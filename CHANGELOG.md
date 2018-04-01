@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Easy import prelude: `use n5::prelude::*;`
 
+### Fixed
+- Mode flag was inverted from correct setting for default and varlength blocks.
+
 
 ## [0.2.0] - 2018-03-10
 ### Added
