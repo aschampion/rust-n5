@@ -286,8 +286,8 @@ pub enum DataType {
 
 impl DataType {
     /// Boilerplate method for reflection of primitive type sizes.
-    pub fn size_of(&self) -> usize {
-        match *self {
+    pub fn size_of(self) -> usize {
+        match self {
             DataType::UINT8 => std::mem::size_of::<u8>(),
             DataType::UINT16 => std::mem::size_of::<u16>(),
             DataType::UINT32 => std::mem::size_of::<u32>(),
