@@ -26,5 +26,6 @@ pub use ::compression::{
     self,
     CompressionType,
 };
+#[cfg(feature = "filesystem")]
 #[doc(no_inline)]
 pub use ::filesystem::N5Filesystem;

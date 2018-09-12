@@ -7,6 +7,7 @@ extern crate byteorder;
 extern crate bzip2;
 #[cfg(feature = "gzip")]
 extern crate flate2;
+#[cfg(feature = "filesystem")]
 extern crate fs2;
 #[cfg(feature = "use_ndarray")]
 extern crate itertools;
@@ -26,6 +27,7 @@ extern crate serde_derive;
 #[cfg(test)]
 extern crate tempdir;
 extern crate regex;
+#[cfg(feature = "filesystem")]
 extern crate walkdir;
 #[cfg(feature = "xz")]
 extern crate xz2;
@@ -50,6 +52,7 @@ use serde::Serialize;
 use ::compression::Compression;
 
 pub mod compression;
+#[cfg(feature = "filesystem")]
 pub mod filesystem;
 pub mod prelude;
 
