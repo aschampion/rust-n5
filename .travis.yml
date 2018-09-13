@@ -8,7 +8,6 @@ rust:
 cache: cargo
 matrix:
   allow_failures:
-    - rust: stable
     - rust: nightly
 before_script:
   - bash -c 'if [[ "$TRAVIS_RUST_VERSION" == "nightly" ]]; then
