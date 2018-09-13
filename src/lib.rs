@@ -98,6 +98,13 @@ pub trait N5Reader {
         self.exists(path_name) && self.get_dataset_attributes(path_name).is_ok()
     }
 
+    /// Get a URI string for a data block.
+    ///
+    /// Whether this requires that the dataset and block exist is currently
+    /// implementation dependent. Whether this URI is a URL is implementation
+    /// dependent.
+    fn get_block_uri(&self, path_name: &str, grid_position: &[i64]) -> Result<String, Error>;
+
     /// Read a single dataset block into a linear vec.
     fn read_block<T>(
         &self,

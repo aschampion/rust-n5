@@ -174,6 +174,13 @@ impl N5Reader for N5Filesystem {
         target.is_dir()
     }
 
+    fn get_block_uri(&self, path_name: &str, grid_position: &[i64]) -> Result<String> {
+        self.get_data_block_path(path_name, grid_position)?.to_str()
+            // TODO: could use URL crate and `from_file_path` here.
+            .map(|s| format!("file://{}", s))
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Paths must be UTF-8"))
+    }
+
     fn read_block<T>(
         &self,
         path_name: &str,
@@ -375,6 +382,17 @@ mod tests {
         assert!(create.get_path("..").is_err());
         assert!(create.get_path("foo/bar/baz/../../..").is_ok());
         assert!(create.get_path("foo/bar/baz/../../../..").is_err());
+    }
+
+    #[test]
+    fn test_get_block_uri() {
+        let dir = TempDir::new("rust_n5_tests").unwrap();
+        let path_str = dir.path().to_str().unwrap();
+
+        let create = N5Filesystem::open_or_create(path_str)
+            .expect("Failed to create N5 filesystem");
+        let uri = create.get_block_uri("foo/bar", &vec![1, 2, 3]).unwrap();
+        assert_eq!(uri, format!("file://{}/foo/bar/1/2/3", path_str));
     }
 
     #[test]
