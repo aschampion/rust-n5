@@ -716,7 +716,7 @@ pub(crate) mod tests {
             dimensions: vec![5, 6, 7],
             block_size: vec![1, 2, 3],
             data_type: DataType::INT16,
-            compression: compression,
+            compression,
         };
 
         let block = <DefaultBlock as DefaultBlockReader<i16, std::io::Cursor<&[u8]>>>::read_block(
@@ -734,7 +734,7 @@ pub(crate) mod tests {
             dimensions: vec![10, 10, 10],
             block_size: vec![5, 5, 5],
             data_type: DataType::INT32,
-            compression: compression,
+            compression,
         };
         let block_data: Vec<i32> = (0..125_i32).collect();
         let block_in = VecDataBlock::new(
