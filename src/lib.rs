@@ -415,6 +415,57 @@ impl DatasetAttributes {
     pub fn get_ndim(&self) -> usize {
         self.dimensions.len()
     }
+
+    #[cfg(feature = "use_ndarray")]
+    pub fn coord_iter(&self) -> impl Iterator<Item = Vec<i64>> + ExactSizeIterator {
+        let coord_ceil = self.get_dimensions().iter()
+            .zip(self.get_block_size().iter())
+            .map(|(&d, &s)| (d + i64::from(s) - 1) / i64::from(s))
+            .collect::<Vec<_>>();
+
+        CoordIterator::new(&coord_ceil)
+    }
+}
+
+/// Iterator wrapper to provide exact size when iterating over coordinate
+/// ranges.
+#[cfg(feature = "use_ndarray")]
+struct CoordIterator<T: Iterator<Item = Vec<i64>>> {
+    iter: T,
+    accumulator: usize,
+    total_coords: usize,
+}
+
+#[cfg(feature = "use_ndarray")]
+impl CoordIterator<itertools::MultiProduct<std::ops::Range<i64>>> {
+    fn new(ceil: &[i64]) -> Self {
+        CoordIterator {
+            iter: ceil.iter()
+                .map(|&c| 0..c)
+                .multi_cartesian_product(),
+            accumulator: 0,
+            total_coords: ceil.iter().product::<i64>() as usize,
+        }
+    }
+}
+
+#[cfg(feature = "use_ndarray")]
+impl<T: Iterator<Item = Vec<i64>>> Iterator for CoordIterator<T> {
+    type Item = Vec<i64>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.accumulator += 1;
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.total_coords - self.accumulator;
+        (remaining, Some(remaining))
+    }
+}
+
+#[cfg(feature = "use_ndarray")]
+impl<T: Iterator<Item = Vec<i64>>> ExactSizeIterator for CoordIterator<T> {
 }
 
 
@@ -706,6 +757,29 @@ impl std::str::FromStr for Version {
 pub(crate) mod tests {
     use super::*;
     use std::io::Cursor;
+
+    #[cfg(feature = "use_ndarray")]
+    #[test]
+    fn test_dataset_attributes_coord_iter() {
+        use std::collections::HashSet;
+
+        let data_attrs = DatasetAttributes {
+            dimensions: vec![1, 4, 5],
+            block_size: vec![1, 2, 3],
+            data_type: DataType::INT16,
+            compression: compression::CompressionType::default(),
+        };
+
+        let coords: HashSet<Vec<i64>> = data_attrs.coord_iter().collect();
+        let expected: HashSet<Vec<i64>> = vec![
+            vec![0, 0, 0],
+            vec![0, 0, 1],
+            vec![0, 1, 0],
+            vec![0, 1, 1],
+        ].into_iter().collect();
+
+        assert_eq!(coords, expected);
+    }
 
     pub(crate) fn test_read_doc_spec_block(
             block: &[u8],
