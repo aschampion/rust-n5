@@ -58,13 +58,13 @@ pub mod prelude;
 
 
 lazy_static! {
-    static ref VERSION: Version = {
+    pub static ref VERSION: Version = {
         Version::new(2, 0, 2, "")
     };
 }
 
 /// Key name for the version attribute in the container root.
-const VERSION_ATTRIBUTE_KEY: &str = "n5";
+pub const VERSION_ATTRIBUTE_KEY: &str = "n5";
 
 /// Specifes the extents of an axis-aligned bounding box.
 #[derive(Debug)]
@@ -660,7 +660,7 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
 // TODO: needed because cannot invoke type parameterized static trait methods
 // directly from trait name in Rust. Symptom of design problems with
 // `DefaultBlockReader`, etc.
-struct DefaultBlock;
+pub struct DefaultBlock;
 impl<T, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock
         where DataType: DataBlockCreator<T> {}
 impl<T, W: std::io::Write, B: DataBlock<T>> DefaultBlockWriter<T, W, B> for DefaultBlock {}
