@@ -55,9 +55,9 @@ fn main() {
 }
 ```
 
-## Major TODOs
-- Kludge `DefaultBlock` type
-- Generally, direct translation from Java is unidiomatic and a mess of boxes
+## Status
+
+This library is compatible with all N5 datasets the authors have encountered and is used in production services. However, some aspects of the library are still unergonomic and interfaces may still undergo rapid breaking changes.
 
 ## License
 
