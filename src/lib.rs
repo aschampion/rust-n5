@@ -483,9 +483,9 @@ pub trait WriteableDataBlock {
 ///
 /// To enable custom types to be written to N5 volumes, implement this trait.
 pub trait DataBlock<T> : Into<Vec<T>> + ReadableDataBlock + WriteableDataBlock {
-    fn get_size(&self) -> &Vec<i32>;
+    fn get_size(&self) -> &[i32];
 
-    fn get_grid_position(&self) -> &Vec<i64>;
+    fn get_grid_position(&self) -> &[i64];
 
     fn get_data(&self) -> &Vec<T>;
 
@@ -583,11 +583,11 @@ impl<T> Into<Vec<T>> for VecDataBlock<T> {
 
 impl<T> DataBlock<T> for VecDataBlock<T>
         where VecDataBlock<T>: ReadableDataBlock + WriteableDataBlock {
-    fn get_size(&self) -> &Vec<i32> {
+    fn get_size(&self) -> &[i32] {
         &self.size
     }
 
-    fn get_grid_position(&self) -> &Vec<i64> {
+    fn get_grid_position(&self) -> &[i64] {
         &self.grid_position
     }
 
@@ -798,8 +798,8 @@ pub(crate) mod tests {
             &data_attrs,
             vec![0, 0, 0]).expect("read_block failed");
 
-        assert_eq!(block.get_size(), &vec![1, 2, 3]);
-        assert_eq!(block.get_grid_position(), &vec![0, 0, 0]);
+        assert_eq!(block.get_size(), &[1, 2, 3]);
+        assert_eq!(block.get_grid_position(), &[0, 0, 0]);
         assert_eq!(block.get_data(), &vec![1, 2, 3, 4, 5, 6]);
     }
 
@@ -828,8 +828,8 @@ pub(crate) mod tests {
             &data_attrs,
             vec![0, 0, 0]).expect("read_block failed");
 
-        assert_eq!(block_out.get_size(), &vec![5, 5, 5]);
-        assert_eq!(block_out.get_grid_position(), &vec![0, 0, 0]);
+        assert_eq!(block_out.get_size(), &[5, 5, 5]);
+        assert_eq!(block_out.get_grid_position(), &[0, 0, 0]);
         assert_eq!(block_out.get_data(), &block_data);
     }
 }
