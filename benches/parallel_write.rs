@@ -14,12 +14,12 @@
 
 extern crate futures;
 extern crate futures_cpupool;
-extern crate image;
 #[macro_use]
 extern crate lazy_static;
 extern crate n5;
 extern crate tempdir;
 extern crate test;
+extern crate tiff;
 
 
 use std::fs::File;
@@ -30,8 +30,11 @@ use futures_cpupool::{
     CpuFuture,
     CpuPool,
 };
-use image::ImageDecoder;
 use test::Bencher;
+use tiff::decoder::{
+    Decoder,
+    DecodingResult,
+};
 
 use n5::{
     DatasetAttributes,
@@ -53,12 +56,12 @@ lazy_static! {
         let fin = File::open("benches/JeffT1_le.tif").unwrap();
         let fin = BufReader::new(fin);
 
-        let mut decoder = image::tiff::TIFFDecoder::new(fin).unwrap();
+        let mut decoder = Decoder::new(fin).unwrap();
 
         while decoder.more_images() {
             match decoder.read_image().unwrap() {
-                image::DecodingResult::U8(_) => panic!("Expect u16 image!"),
-                image::DecodingResult::U16(img) => {
+                DecodingResult::U8(_) => panic!("Expect u16 image!"),
+                DecodingResult::U16(img) => {
                     for p in img {
                         pixels.push(p as i8);
                     }
