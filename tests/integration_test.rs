@@ -8,10 +8,12 @@ use rand::Rng;
 use n5::prelude::*;
 
 
-fn test_read_write<T: 'static + std::fmt::Debug + rand::Rand + Clone + PartialEq, N5: N5Reader + N5Writer>(
+fn test_read_write<T, N5: N5Reader + N5Writer>(
         n: &N5,
         compression: &CompressionType,
-) where DataType: TypeReflection<T>,
+) where T: 'static + std::fmt::Debug + Clone + PartialEq,
+        rand::distributions::Standard: rand::distributions::Distribution<T>,
+        DataType: TypeReflection<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock,
         DataType: n5::DataBlockCreator<T> {
     let block_size = vec![44i32, 33, 22];
