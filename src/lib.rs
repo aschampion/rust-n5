@@ -418,6 +418,16 @@ impl DatasetAttributes {
         self.dimensions.len()
     }
 
+    /// Get the total number of elements possible given the dimensions.
+    pub fn get_num_elements(&self) -> usize {
+        self.dimensions.iter().map(|&d| d as usize).product()
+    }
+
+    /// Get the total number of elements possible in a block.
+    pub fn get_block_num_elements(&self) -> usize {
+        self.block_size.iter().map(|&d| d as usize).product()
+    }
+
     #[cfg(feature = "use_ndarray")]
     pub fn coord_iter(&self) -> impl Iterator<Item = Vec<i64>> + ExactSizeIterator {
         let coord_ceil = self.get_dimensions().iter()

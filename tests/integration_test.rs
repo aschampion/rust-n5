@@ -24,7 +24,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
         <DataType as TypeReflection<T>>::get_type_variant(),
         compression.clone(),
     );
-    let numel = block_size.iter().product::<i32>() as usize;
+    let numel = data_attrs.get_block_num_elements();
     let mut rng = rand::thread_rng();
     let mut block_data = Vec::<T>::with_capacity(numel);
 
@@ -123,7 +123,7 @@ fn test_read_ndarray() {
         <DataType as TypeReflection<i32>>::get_type_variant(),
         CompressionType::default(),
     );
-    let numel = block_size.iter().product::<i32>() as usize;
+    let numel = data_attrs.get_block_num_elements();
 
     let path_name = "test/dataset/group";
     n.create_dataset(path_name, &data_attrs)

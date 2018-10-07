@@ -30,8 +30,7 @@ fn n5_roundtrip(root_path: &str) -> std::io::Result<()> {
         DataType::INT16,
         CompressionType::default(),
     );
-    let numel = block_size.iter().product::<i32>() as usize;
-    let block_data: Vec<i16> = vec![0i16; numel];
+    let block_data: Vec<i16> = vec![0i16; data_attrs.get_block_num_elements()];
 
     let block_in = VecDataBlock::new(
         block_size,
