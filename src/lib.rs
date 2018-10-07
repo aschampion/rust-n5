@@ -388,6 +388,8 @@ impl DatasetAttributes {
         data_type: DataType,
         compression: compression::CompressionType,
     ) -> DatasetAttributes {
+        assert_eq!(dimensions.len(), block_size.len(),
+            "Number of dataset dimensions must match number of block size dimensions.");
         DatasetAttributes {
             dimensions,
             block_size,

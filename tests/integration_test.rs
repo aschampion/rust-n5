@@ -11,14 +11,15 @@ use n5::prelude::*;
 fn test_read_write<T, N5: N5Reader + N5Writer>(
         n: &N5,
         compression: &CompressionType,
+        dim: usize,
 ) where T: 'static + std::fmt::Debug + Clone + PartialEq,
         rand::distributions::Standard: rand::distributions::Distribution<T>,
         DataType: TypeReflection<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock,
         DataType: n5::DataBlockCreator<T> {
-    let block_size = vec![44i32, 33, 22];
+    let block_size: Vec<_> = (1..=dim as i32).rev().map(|d| d*5).collect();
     let data_attrs = DatasetAttributes::new(
-        vec![100, 200, 300],
+        (1..=dim as i64).map(|d| d*100).collect(),
         block_size.clone(),
         <DataType as TypeReflection<T>>::get_type_variant(),
         compression.clone(),
@@ -33,7 +34,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
 
     let block_in = VecDataBlock::new(
         block_size,
-        vec![0, 0, 0],
+        vec![0; dim],
         block_data.clone());
 
     let path_name = "test/dataset/group";
@@ -43,7 +44,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
     n.write_block(path_name, &data_attrs, &block_in)
         .expect("Failed to write block");
 
-    let block_out = n.read_block::<T>(path_name, &data_attrs, vec![0, 0, 0])
+    let block_out = n.read_block::<T>(path_name, &data_attrs, vec![0; dim])
         .expect("Failed to read block")
         .expect("Block is empty");
     assert_eq!(block_out.get_data(), &block_data);
@@ -54,33 +55,50 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
 fn test_all_types<N5: N5Reader + N5Writer>(
         n: &N5,
         compression: &CompressionType,
+        dim: usize,
 ) {
-    test_read_write::<u8, _>(n, compression);
-    test_read_write::<u16, _>(n, compression);
-    test_read_write::<u32, _>(n, compression);
-    test_read_write::<u64, _>(n, compression);
-    test_read_write::<i8, _>(n, compression);
-    test_read_write::<i16, _>(n, compression);
-    test_read_write::<i32, _>(n, compression);
-    test_read_write::<i64, _>(n, compression);
-    test_read_write::<f32, _>(n, compression);
-    test_read_write::<f64, _>(n, compression);
+    test_read_write::<u8, _>(n, compression, dim);
+    test_read_write::<u16, _>(n, compression, dim);
+    test_read_write::<u32, _>(n, compression, dim);
+    test_read_write::<u64, _>(n, compression, dim);
+    test_read_write::<i8, _>(n, compression, dim);
+    test_read_write::<i16, _>(n, compression, dim);
+    test_read_write::<i32, _>(n, compression, dim);
+    test_read_write::<i64, _>(n, compression, dim);
+    test_read_write::<f32, _>(n, compression, dim);
+    test_read_write::<f64, _>(n, compression, dim);
 }
 
-fn test_all_compressions<N5: N5Reader + N5Writer>(n: &N5) {
-    test_all_types(n, &CompressionType::Raw(compression::raw::RawCompression::default()));
-    #[cfg(feature = "bzip")]
-    test_all_types(n, &CompressionType::Bzip2(compression::bzip::Bzip2Compression::default()));
-    #[cfg(feature = "gzip")]
-    test_all_types(n, &CompressionType::Gzip(compression::gzip::GzipCompression::default()));
-    #[cfg(feature = "lz")]
-    test_all_types(n, &CompressionType::Lz4(compression::lz::Lz4Compression::default()));
-    #[cfg(feature = "xz")]
-    test_all_types(n, &CompressionType::Xz(compression::xz::XzCompression::default()));
+fn test_n5_filesystem_dim(dim: usize) {
+    let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
+    let path_str = dir.path().to_str().unwrap();
+
+    let n = N5Filesystem::open_or_create(path_str)
+        .expect("Failed to create N5 filesystem");
+    test_all_types(&n, &CompressionType::Raw(compression::raw::RawCompression::default()), dim);
 }
 
 #[test]
-fn test_n5_filesystem() {
+fn test_n5_filesystem_dims() {
+    for dim in 1..=5 {
+        test_n5_filesystem_dim(dim);
+    }
+}
+
+fn test_all_compressions<N5: N5Reader + N5Writer>(n: &N5) {
+    test_all_types(n, &CompressionType::Raw(compression::raw::RawCompression::default()), 3);
+    #[cfg(feature = "bzip")]
+    test_all_types(n, &CompressionType::Bzip2(compression::bzip::Bzip2Compression::default()), 3);
+    #[cfg(feature = "gzip")]
+    test_all_types(n, &CompressionType::Gzip(compression::gzip::GzipCompression::default()), 3);
+    #[cfg(feature = "lz")]
+    test_all_types(n, &CompressionType::Lz4(compression::lz::Lz4Compression::default()), 3);
+    #[cfg(feature = "xz")]
+    test_all_types(n, &CompressionType::Xz(compression::xz::XzCompression::default()), 3);
+}
+
+#[test]
+fn test_n5_filesystem_compressions() {
     let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
     let path_str = dir.path().to_str().unwrap();
 
