@@ -29,6 +29,7 @@ use walkdir::WalkDir;
 use ::{
     DataBlock,
     DataBlockCreator,
+    DataBlockMetadata,
     DataType,
     DatasetAttributes,
     DefaultBlockReader,
@@ -198,6 +199,25 @@ impl N5Reader for N5Filesystem {
                 reader,
                 data_attrs,
                 grid_position)?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn block_metadata(
+        &self,
+        path_name: &str,
+        _data_attrs: &DatasetAttributes,
+        grid_position: &[i64],
+    ) -> Result<Option<DataBlockMetadata>> {
+        let block_file = self.get_data_block_path(path_name, grid_position)?;
+        if block_file.is_file() {
+            let metadata = std::fs::metadata(block_file)?;
+            Ok(Some(DataBlockMetadata {
+                created: metadata.created()?,
+                accessed: metadata.accessed()?,
+                modified: metadata.modified()?,
+            }))
         } else {
             Ok(None)
         }

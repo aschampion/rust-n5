@@ -15,6 +15,7 @@ pub use ::{
     BoundingBox,
     DatasetAttributes,
     DataBlock,
+    DataBlockMetadata,
     DataType,
     N5Reader,
     N5Writer,

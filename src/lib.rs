@@ -38,6 +38,7 @@ use std::io::{
     Error,
     ErrorKind,
 };
+use std::time::SystemTime;
 
 use byteorder::{
     BigEndian,
@@ -82,6 +83,13 @@ impl BoundingBox {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct DataBlockMetadata {
+    pub created: SystemTime,
+    pub accessed: SystemTime,
+    pub modified: SystemTime,
+}
+
 /// Non-mutating operations on N5 containers.
 pub trait N5Reader {
     /// Get the N5 specification version of the container.
@@ -114,6 +122,14 @@ pub trait N5Reader {
     ) -> Result<Option<VecDataBlock<T>>, Error>
         where DataType: DataBlockCreator<T>,
               VecDataBlock<T>: DataBlock<T>;
+
+    /// Read metadata about a block.
+    fn block_metadata(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        grid_position: &[i64],
+    ) -> Result<Option<DataBlockMetadata>, Error>;
 
     /// Read an abitrary bounding box from an N5 volume in an ndarray, reading
     /// blocks in serial as necessary.
