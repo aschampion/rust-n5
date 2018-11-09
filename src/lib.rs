@@ -121,7 +121,8 @@ pub trait N5Reader {
         grid_position: Vec<i64>,
     ) -> Result<Option<VecDataBlock<T>>, Error>
         where DataType: DataBlockCreator<T>,
-              VecDataBlock<T>: DataBlock<T>;
+              VecDataBlock<T>: DataBlock<T>,
+              T: Clone;
 
     /// Read metadata about a block.
     fn block_metadata(
@@ -335,7 +336,7 @@ pub trait TypeReflection<T> {
 
 // TODO: replace this with a generic inherent function and instead check that
 // dataset DataType is expected type (via `TypeReflection` trait).
-pub trait DataBlockCreator<T> {
+pub trait DataBlockCreator<T: Clone> {
     fn create_data_block(
         &self,
         block_size: Vec<i32>,
@@ -522,13 +523,14 @@ pub trait DataBlock<T> : Into<Vec<T>> + ReadableDataBlock + WriteableDataBlock {
 
 /// A linear vector storing a data block. All read data blocks are returned as
 /// this type.
-pub struct VecDataBlock<T> {
+#[derive(Clone)]
+pub struct VecDataBlock<T: Clone> {
     size: Vec<i32>,
     grid_position: Vec<i64>,
     data: Vec<T>,
 }
 
-impl<T> VecDataBlock<T> {
+impl<T: Clone> VecDataBlock<T> {
     pub fn new(size: Vec<i32>, grid_position: Vec<i64>, data: Vec<T>) -> VecDataBlock<T> {
         VecDataBlock {
             size,
@@ -603,13 +605,13 @@ impl WriteableDataBlock for VecDataBlock<i8> {
     }
 }
 
-impl<T> Into<Vec<T>> for VecDataBlock<T> {
+impl<T: Clone> Into<Vec<T>> for VecDataBlock<T> {
     fn into(self) -> Vec<T> {
         self.data
     }
 }
 
-impl<T> DataBlock<T> for VecDataBlock<T>
+impl<T: Clone> DataBlock<T> for VecDataBlock<T>
         where VecDataBlock<T>: ReadableDataBlock + WriteableDataBlock {
     fn get_size(&self) -> &[i32] {
         &self.size
@@ -630,7 +632,7 @@ impl<T> DataBlock<T> for VecDataBlock<T>
 
 
 /// Reads blocks from rust readers.
-pub trait DefaultBlockReader<T, R: std::io::Read>
+pub trait DefaultBlockReader<T: Clone, R: std::io::Read>
         where DataType: DataBlockCreator<T> {
     fn read_block(
         mut buffer: R,
@@ -689,7 +691,7 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
 // directly from trait name in Rust. Symptom of design problems with
 // `DefaultBlockReader`, etc.
 pub struct DefaultBlock;
-impl<T, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock
+impl<T: Clone, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock
         where DataType: DataBlockCreator<T> {}
 impl<T, W: std::io::Write, B: DataBlock<T>> DefaultBlockWriter<T, W, B> for DefaultBlock {}
 

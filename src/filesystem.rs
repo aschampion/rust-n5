@@ -189,7 +189,8 @@ impl N5Reader for N5Filesystem {
         grid_position: Vec<i64>
     ) -> Result<Option<VecDataBlock<T>>>
             where DataType: DataBlockCreator<T>,
-                  VecDataBlock<T>: DataBlock<T> {
+                  VecDataBlock<T>: DataBlock<T>,
+                  T: Clone {
         let block_file = self.get_data_block_path(path_name, &grid_position)?;
         if block_file.is_file() {
             let file = File::open(block_file)?;
