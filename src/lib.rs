@@ -329,6 +329,12 @@ impl DataType {
     }
 }
 
+impl std::fmt::Display for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Reflect rust types to type values.
 pub trait TypeReflection<T> {
     fn get_type_variant() -> Self;
