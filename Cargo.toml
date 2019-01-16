@@ -1,6 +1,6 @@
 [package]
 name = "n5"
-version = "0.3.0-pre"
+version = "0.3.0"
 license = "MIT/Apache-2.0"
 authors = ["Andrew Champion <andrew.champion@gmail.com>"]
 description = "Rust implementation of the N5 tensor file system format"

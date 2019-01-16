@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2019-01-16
+### Changed
+- `DataType` implements `Display`.
+- `VecDataBlock<T>` implements `Clone` and requires `T: Clone`.
+
+
 ## [0.2.4] - 2018-10-17
 ### Changed
 - Updated the `flate2-rs` GZIP dependency to be compatible with WebAssembly.
