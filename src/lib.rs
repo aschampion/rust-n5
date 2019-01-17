@@ -20,7 +20,7 @@ extern crate ndarray;
 #[cfg(feature = "use_ndarray")]
 extern crate num_traits;
 extern crate serde;
-#[macro_use]
+#[cfg_attr(feature = "filesystem", macro_use)]
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
