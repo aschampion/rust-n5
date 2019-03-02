@@ -33,6 +33,8 @@ use smallvec::SmallVec;
 use crate::compression::Compression;
 
 pub mod compression;
+mod data_type;
+pub use data_type::*;
 #[cfg(feature = "filesystem")]
 pub mod filesystem;
 #[cfg(feature = "use_ndarray")]
@@ -191,97 +193,6 @@ pub trait N5Writer : N5Reader {
     ) -> Result<(), Error>;
 }
 
-
-/// Data types representable in N5.
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
-#[serde(rename_all = "lowercase")]
-pub enum DataType {
-    UINT8,
-    UINT16,
-    UINT32,
-    UINT64,
-    INT8,
-    INT16,
-    INT32,
-    INT64,
-    FLOAT32,
-    FLOAT64,
-}
-
-impl DataType {
-    /// Boilerplate method for reflection of primitive type sizes.
-    pub fn size_of(self) -> usize {
-        match self {
-            DataType::UINT8 => std::mem::size_of::<u8>(),
-            DataType::UINT16 => std::mem::size_of::<u16>(),
-            DataType::UINT32 => std::mem::size_of::<u32>(),
-            DataType::UINT64 => std::mem::size_of::<u64>(),
-            DataType::INT8 => std::mem::size_of::<i8>(),
-            DataType::INT16 => std::mem::size_of::<i16>(),
-            DataType::INT32 => std::mem::size_of::<i32>(),
-            DataType::INT64 => std::mem::size_of::<i64>(),
-            DataType::FLOAT32 => std::mem::size_of::<f32>(),
-            DataType::FLOAT64 => std::mem::size_of::<f64>(),
-        }
-    }
-}
-
-impl std::fmt::Display for DataType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-/// Reflect rust types to type values.
-pub trait TypeReflection<T> {
-    fn get_type_variant() -> Self;
-}
-
-// TODO: replace this with a generic inherent function and instead check that
-// dataset DataType is expected type (via `TypeReflection` trait).
-pub trait DataBlockCreator<T: Clone> {
-    fn create_data_block(
-        &self,
-        header: BlockHeader,
-    ) -> Option<VecDataBlock<T>>;
-}
-
-macro_rules! data_type_block_creator {
-    ($d_name:ident, $d_type:ty) => {
-        impl TypeReflection<$d_type> for DataType {
-            fn get_type_variant() -> DataType {
-                DataType::$d_name
-            }
-        }
-
-        impl DataBlockCreator<$d_type> for DataType {
-            fn create_data_block(
-                &self,
-                header: BlockHeader,
-            ) -> Option<VecDataBlock<$d_type>> {
-                match *self {
-                    DataType::$d_name => Some(VecDataBlock::<$d_type>::new(
-                        header.size,
-                        header.grid_position,
-                        vec![0. as $d_type; header.num_el],
-                    )),
-                    _ => None,
-                }
-            }
-        }
-    }
-}
-
-data_type_block_creator!(UINT8,  u8);
-data_type_block_creator!(UINT16, u16);
-data_type_block_creator!(UINT32, u32);
-data_type_block_creator!(UINT64, u64);
-data_type_block_creator!(INT8,  i8);
-data_type_block_creator!(INT16, i16);
-data_type_block_creator!(INT32, i32);
-data_type_block_creator!(INT64, i64);
-data_type_block_creator!(FLOAT32, f32);
-data_type_block_creator!(FLOAT64, f64);
 
 /// Attributes of a tensor dataset.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
