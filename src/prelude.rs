@@ -12,11 +12,13 @@
 
 #[doc(no_inline)]
 pub use ::{
+    BlockCoord,
     BoundingBox,
     DatasetAttributes,
     DataBlock,
     DataBlockMetadata,
     DataType,
+    GridCoord,
     N5Reader,
     N5Writer,
     TypeReflection,

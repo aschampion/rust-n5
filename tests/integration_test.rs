@@ -1,5 +1,7 @@
 extern crate n5;
 extern crate rand;
+#[macro_use]
+extern crate smallvec;
 extern crate tempdir;
 
 
@@ -17,7 +19,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
         DataType: TypeReflection<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock,
         DataType: n5::DataBlockCreator<T> {
-    let block_size: Vec<_> = (1..=dim as i32).rev().map(|d| d*5).collect();
+    let block_size: BlockCoord = (1..=dim as i32).rev().map(|d| d*5).collect();
     let data_attrs = DatasetAttributes::new(
         (1..=dim as i64).map(|d| d*100).collect(),
         block_size.clone(),
@@ -34,7 +36,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
 
     let block_in = VecDataBlock::new(
         block_size,
-        vec![0; dim],
+        smallvec![0; dim],
         block_data.clone());
 
     let path_name = "test/dataset/group";
@@ -44,7 +46,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
     n.write_block(path_name, &data_attrs, &block_in)
         .expect("Failed to write block");
 
-    let block_out = n.read_block::<T>(path_name, &data_attrs, vec![0; dim])
+    let block_out = n.read_block::<T>(path_name, &data_attrs, smallvec![0; dim])
         .expect("Failed to read block")
         .expect("Block is empty");
     assert_eq!(block_out.get_data(), &block_data);
@@ -116,9 +118,9 @@ fn test_read_ndarray() {
     let n = N5Filesystem::open_or_create(path_str)
         .expect("Failed to create N5 filesystem");
 
-    let block_size = vec![3i32, 4, 2, 1];
+    let block_size = smallvec![3i32, 4, 2, 1];
     let data_attrs = DatasetAttributes::new(
-        vec![3, 300, 200, 100],
+        smallvec![3, 300, 200, 100],
         block_size.clone(),
         <DataType as TypeReflection<i32>>::get_type_variant(),
         CompressionType::default(),
@@ -151,7 +153,7 @@ fn test_read_ndarray() {
 
                 let block_in = VecDataBlock::new(
                     block_size.clone(),
-                    vec![0, i64::from(i), i64::from(j), i64::from(k)],
+                    smallvec![0, i64::from(i), i64::from(j), i64::from(k)],
                     block_data);
                 n.write_block(path_name, &data_attrs, &block_in)
                     .expect("Failed to write block");

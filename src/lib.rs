@@ -24,6 +24,8 @@ extern crate serde;
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+pub extern crate smallvec;
 #[cfg(test)]
 extern crate tempdir;
 extern crate regex;
@@ -49,6 +51,7 @@ use byteorder::{
 #[cfg(feature = "use_ndarray")]
 use itertools::Itertools;
 use serde::Serialize;
+use smallvec::SmallVec;
 
 use ::compression::Compression;
 
@@ -56,6 +59,11 @@ pub mod compression;
 #[cfg(feature = "filesystem")]
 pub mod filesystem;
 pub mod prelude;
+
+
+const COORD_SMALLVEC_SIZE: usize = 6;
+pub type BlockCoord = SmallVec<[i32; COORD_SMALLVEC_SIZE]>;
+pub type GridCoord = SmallVec<[i64; COORD_SMALLVEC_SIZE]>;
 
 
 lazy_static! {
@@ -118,7 +126,7 @@ pub trait N5Reader {
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
-        grid_position: Vec<i64>,
+        grid_position: GridCoord,
     ) -> Result<Option<VecDataBlock<T>>, Error>
         where DataType: DataBlockCreator<T>,
               VecDataBlock<T>: DataBlock<T>,
@@ -176,7 +184,7 @@ pub trait N5Reader {
         let mut arr = Array::zeros(arr_size.f());
 
         for coord in coord_iter {
-            let block_opt = self.read_block(path_name, data_attrs, coord.clone())?;
+            let block_opt = self.read_block(path_name, data_attrs, GridCoord::from(&coord[..]))?;
 
             if let Some(block) = block_opt {
                 let block_size = Array::from_iter(block.get_size().iter().map(|n| i64::from(*n)));
@@ -345,8 +353,8 @@ pub trait TypeReflection<T> {
 pub trait DataBlockCreator<T: Clone> {
     fn create_data_block(
         &self,
-        block_size: Vec<i32>,
-        grid_position: Vec<i64>,
+        block_size: BlockCoord,
+        grid_position: GridCoord,
         num_el: usize,
     ) -> Option<VecDataBlock<T>>;
 }
@@ -362,8 +370,8 @@ macro_rules! data_type_block_creator {
         impl DataBlockCreator<$d_type> for DataType {
             fn create_data_block(
                 &self,
-                block_size: Vec<i32>,
-                grid_position: Vec<i64>,
+                block_size: BlockCoord,
+                grid_position: GridCoord,
                 num_el: usize,
             ) -> Option<VecDataBlock<$d_type>> {
                 match *self {
@@ -395,9 +403,9 @@ data_type_block_creator!(FLOAT64, f64);
 #[serde(rename_all = "camelCase")]
 pub struct DatasetAttributes {
     /// Dimensions of the entire dataset, in voxels.
-    dimensions: Vec<i64>,
+    dimensions: GridCoord,
     /// Size of each block, in voxels.
-    block_size: Vec<i32>,
+    block_size: BlockCoord,
     /// Element data type.
     data_type: DataType,
     /// Compression scheme for voxel data in each block.
@@ -406,8 +414,8 @@ pub struct DatasetAttributes {
 
 impl DatasetAttributes {
     pub fn new(
-        dimensions: Vec<i64>,
-        block_size: Vec<i32>,
+        dimensions: GridCoord,
+        block_size: BlockCoord,
         data_type: DataType,
         compression: compression::CompressionType,
     ) -> DatasetAttributes {
@@ -531,13 +539,13 @@ pub trait DataBlock<T> : Into<Vec<T>> + ReadableDataBlock + WriteableDataBlock {
 /// this type.
 #[derive(Clone)]
 pub struct VecDataBlock<T: Clone> {
-    size: Vec<i32>,
-    grid_position: Vec<i64>,
+    size: BlockCoord,
+    grid_position: GridCoord,
     data: Vec<T>,
 }
 
 impl<T: Clone> VecDataBlock<T> {
-    pub fn new(size: Vec<i32>, grid_position: Vec<i64>, data: Vec<T>) -> VecDataBlock<T> {
+    pub fn new(size: BlockCoord, grid_position: GridCoord, data: Vec<T>) -> VecDataBlock<T> {
         VecDataBlock {
             size,
             grid_position,
@@ -643,12 +651,12 @@ pub trait DefaultBlockReader<T: Clone, R: std::io::Read>
     fn read_block(
         mut buffer: R,
         data_attrs: &DatasetAttributes,
-        grid_position: Vec<i64>,
+        grid_position: GridCoord,
     ) -> std::io::Result<VecDataBlock<T>>
             where VecDataBlock<T>: DataBlock<T> {
         let mode = buffer.read_i16::<BigEndian>()?;
         let ndim = buffer.read_i16::<BigEndian>()?;
-        let mut dims = vec![0; ndim as usize];
+        let mut dims = smallvec![0; ndim as usize];
         buffer.read_i32_into::<BigEndian>(&mut dims)?;
         let num_el = match mode {
             0 => dims.iter().product(),
@@ -800,8 +808,8 @@ pub(crate) mod tests {
         use std::collections::HashSet;
 
         let data_attrs = DatasetAttributes {
-            dimensions: vec![1, 4, 5],
-            block_size: vec![1, 2, 3],
+            dimensions: smallvec![1, 4, 5],
+            block_size: smallvec![1, 2, 3],
             data_type: DataType::INT16,
             compression: compression::CompressionType::default(),
         };
@@ -823,8 +831,8 @@ pub(crate) mod tests {
     ) {
         let buff = Cursor::new(block);
         let data_attrs = DatasetAttributes {
-            dimensions: vec![5, 6, 7],
-            block_size: vec![1, 2, 3],
+            dimensions: smallvec![5, 6, 7],
+            block_size: smallvec![1, 2, 3],
             data_type: DataType::INT16,
             compression,
         };
@@ -832,7 +840,7 @@ pub(crate) mod tests {
         let block = <DefaultBlock as DefaultBlockReader<i16, std::io::Cursor<&[u8]>>>::read_block(
             buff,
             &data_attrs,
-            vec![0, 0, 0]).expect("read_block failed");
+            smallvec![0, 0, 0]).expect("read_block failed");
 
         assert_eq!(block.get_size(), &[1, 2, 3]);
         assert_eq!(block.get_grid_position(), &[0, 0, 0]);
@@ -841,15 +849,15 @@ pub(crate) mod tests {
 
     pub(crate) fn test_block_compression_rw(compression: compression::CompressionType) {
         let data_attrs = DatasetAttributes {
-            dimensions: vec![10, 10, 10],
-            block_size: vec![5, 5, 5],
+            dimensions: smallvec![10, 10, 10],
+            block_size: smallvec![5, 5, 5],
             data_type: DataType::INT32,
             compression,
         };
         let block_data: Vec<i32> = (0..125_i32).collect();
         let block_in = VecDataBlock::new(
             data_attrs.block_size.clone(),
-            vec![0, 0, 0],
+            smallvec![0, 0, 0],
             block_data.clone());
 
         let mut inner: Vec<u8> = Vec::new();
@@ -862,7 +870,7 @@ pub(crate) mod tests {
         let block_out = <DefaultBlock as DefaultBlockReader<i32, _>>::read_block(
             &inner[..],
             &data_attrs,
-            vec![0, 0, 0]).expect("read_block failed");
+            smallvec![0, 0, 0]).expect("read_block failed");
 
         assert_eq!(block_out.get_size(), &[5, 5, 5]);
         assert_eq!(block_out.get_grid_position(), &[0, 0, 0]);

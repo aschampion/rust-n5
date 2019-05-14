@@ -34,6 +34,7 @@ use ::{
     DatasetAttributes,
     DefaultBlockReader,
     DefaultBlockWriter,
+    GridCoord,
     N5Reader,
     N5Writer,
     VecDataBlock,
@@ -186,7 +187,7 @@ impl N5Reader for N5Filesystem {
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
-        grid_position: Vec<i64>
+        grid_position: GridCoord,
     ) -> Result<Option<VecDataBlock<T>>>
             where DataType: DataBlockCreator<T>,
                   VecDataBlock<T>: DataBlock<T>,
@@ -377,8 +378,8 @@ mod tests {
         let create = N5Filesystem::open_or_create(path_str)
             .expect("Failed to create N5 filesystem");
         let data_attrs = DatasetAttributes::new(
-            vec![10, 10, 10],
-            vec![5, 5, 5],
+            smallvec![10, 10, 10],
+            smallvec![5, 5, 5],
             DataType::INT32,
             ::compression::CompressionType::Raw(::compression::raw::RawCompression::default()),
         );
@@ -425,15 +426,15 @@ mod tests {
         let create = N5Filesystem::open_or_create(path_str)
             .expect("Failed to create N5 filesystem");
         let data_attrs = DatasetAttributes::new(
-            vec![10, 10, 10],
-            vec![5, 5, 5],
+            smallvec![10, 10, 10],
+            smallvec![5, 5, 5],
             DataType::INT32,
             ::compression::CompressionType::Raw(::compression::raw::RawCompression::default()),
         );
         let block_data: Vec<i32> = (0..125_i32).collect();
         let block_in = ::VecDataBlock::new(
             data_attrs.block_size.clone(),
-            vec![0, 0, 0],
+            smallvec![0, 0, 0],
             block_data.clone());
 
         create.create_dataset("foo/bar", &data_attrs)
@@ -443,10 +444,10 @@ mod tests {
 
         let read = N5Filesystem::open(path_str)
             .expect("Failed to open N5 filesystem");
-        let block_out = read.read_block::<i32>("foo/bar", &data_attrs, vec![0, 0, 0])
+        let block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 0])
             .expect("Failed to read block")
             .expect("Block is empty");
-        let missing_block_out = read.read_block::<i32>("foo/bar", &data_attrs, vec![0, 0, 1])
+        let missing_block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 1])
             .expect("Failed to read block");
 
         assert_eq!(block_out.get_data(), &block_data);
