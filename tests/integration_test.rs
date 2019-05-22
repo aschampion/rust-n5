@@ -161,7 +161,7 @@ fn test_read_ndarray() {
         }
     }
 
-    let bbox = BoundingBox::new(vec![0, 5, 4, 3], vec![3, 35, 15, 7]);
+    let bbox = BoundingBox::new(smallvec![0, 5, 4, 3], smallvec![3, 35, 15, 7]);
     let a = n.read_ndarray::<i32>("test/dataset/group", &data_attrs, &bbox).unwrap();
 
     for z in 0..a.shape()[3] {

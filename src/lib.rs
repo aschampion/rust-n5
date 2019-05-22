@@ -62,8 +62,9 @@ pub mod prelude;
 
 
 const COORD_SMALLVEC_SIZE: usize = 6;
-pub type BlockCoord = SmallVec<[i32; COORD_SMALLVEC_SIZE]>;
-pub type GridCoord = SmallVec<[i64; COORD_SMALLVEC_SIZE]>;
+pub type CoordVec<T> = SmallVec<[T; COORD_SMALLVEC_SIZE]>;
+pub type BlockCoord = CoordVec<i32>;
+pub type GridCoord = CoordVec<i64>;
 
 
 lazy_static! {
@@ -78,12 +79,12 @@ pub const VERSION_ATTRIBUTE_KEY: &str = "n5";
 /// Specifes the extents of an axis-aligned bounding box.
 #[derive(Debug)]
 pub struct BoundingBox {
-    offset: Vec<i64>,
-    size: Vec<i64>,
+    offset: GridCoord,
+    size: GridCoord,
 }
 
 impl BoundingBox {
-    pub fn new(offset: Vec<i64>, size: Vec<i64>) -> BoundingBox {
+    pub fn new(offset: GridCoord, size: GridCoord) -> BoundingBox {
         BoundingBox {
             offset,
             size,
@@ -170,8 +171,8 @@ pub trait N5Reader {
             .zip(&bbox.size)
             .zip(&data_attrs.block_size)
             .map(|((&o, &s), &bs)| (o + s + i64::from(bs) - 1) / i64::from(bs));
-        let offset = Array::from_vec(bbox.offset.clone());
-        let size = Array::from_vec(bbox.size.clone());
+        let offset = ndarray::arr1(&bbox.offset);
+        let size = ndarray::arr1(&bbox.size);
         let arr_end = &offset + &size;
         let norm_block_size = Array::from_iter(data_attrs.block_size.iter().map(|n| i64::from(*n)));
 
@@ -179,7 +180,7 @@ pub trait N5Reader {
             .map(|(min, max)| min..max)
             .multi_cartesian_product();
 
-        let arr_size: Vec<usize> = bbox.size.iter().map(|n| *n as usize).collect();
+        let arr_size: CoordVec<usize> = bbox.size.iter().map(|n| *n as usize).collect();
         let arr_size_a = Array::from_iter(arr_size.iter().map(|n| *n as i64));
         let mut arr = Array::zeros(arr_size.f());
 
@@ -188,7 +189,7 @@ pub trait N5Reader {
 
             if let Some(block) = block_opt {
                 let block_size = Array::from_iter(block.get_size().iter().map(|n| i64::from(*n)));
-                let block_size_usize: Vec<usize> = block.get_size().iter().map(|n| *n as usize).collect();
+                let block_size_usize: CoordVec<usize> = block.get_size().iter().map(|n| *n as usize).collect();
                 let coord_a = Array::from_vec(coord);
 
                 let block_start = &coord_a * &norm_block_size;
@@ -199,7 +200,7 @@ pub trait N5Reader {
                 let arr_start = (&block_start - &offset).mapv(|v| cmp::max(v, 0));
                 let arr_end = arr_size_a.clone() - (&arr_end - &block_end).mapv(|v| cmp::max(v, 0));
 
-                let arr_slice: Vec<ndarray::SliceOrIndex> = arr_start.iter().zip(&arr_end)
+                let arr_slice: CoordVec<ndarray::SliceOrIndex> = arr_start.iter().zip(&arr_end)
                     .map(|(&start, &end)| ndarray::SliceOrIndex::Slice {
                         start: start as isize,
                         end: Some(end as isize),
@@ -207,7 +208,7 @@ pub trait N5Reader {
                     }).collect();
                 let mut arr_view = arr.slice_mut(SliceInfo::<_, IxDyn>::new(arr_slice).unwrap().as_ref());
 
-                let block_slice: Vec<ndarray::SliceOrIndex> = block_min.iter().zip(&block_max)
+                let block_slice: CoordVec<ndarray::SliceOrIndex> = block_min.iter().zip(&block_max)
                     .map(|(&start, &end)| ndarray::SliceOrIndex::Slice {
                         start: start as isize,
                         end: Some(end as isize),
@@ -464,7 +465,7 @@ impl DatasetAttributes {
         let coord_ceil = self.get_dimensions().iter()
             .zip(self.get_block_size().iter())
             .map(|(&d, &s)| (d + i64::from(s) - 1) / i64::from(s))
-            .collect::<Vec<_>>();
+            .collect::<GridCoord>();
 
         CoordIterator::new(&coord_ceil)
     }
