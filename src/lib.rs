@@ -3,6 +3,10 @@
 //! Janelia Research Campus.
 
 
+#[cfg(all(test, feature = "filesystem"))]
+doc_comment::doctest!("../README.md");
+
+
 #[macro_use]
 pub extern crate smallvec;
 
