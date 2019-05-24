@@ -6,6 +6,10 @@ use lz4::{
     Encoder,
     EncoderBuilder,
 };
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 use super::{
     Compression,
@@ -71,11 +75,11 @@ impl Default for Lz4Compression {
 }
 
 impl Compression for Lz4Compression {
-    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a> {
+    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<dyn Read + 'a> {
         Box::new(Decoder::new(r).expect("TODO: LZ4 returns a result here"))
     }
 
-    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
+    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<dyn Write + 'a> {
         let encoder = EncoderBuilder::new().block_size(self.get_effective_block_size()).build(w)
             .expect("TODO");
         Box::new(Wrapper {s: Some(encoder)})

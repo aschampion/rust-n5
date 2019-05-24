@@ -12,24 +12,23 @@
 //! will take several hours to run.
 #![feature(test)]
 
-extern crate futures;
-extern crate futures_cpupool;
-#[macro_use]
-extern crate lazy_static;
-extern crate n5;
-extern crate tempdir;
+
 extern crate test;
-extern crate tiff;
 
 
 use std::fs::File;
 use std::io::BufReader;
 
-use futures::Future;
+use futures::{
+    self,
+    Future,
+};
 use futures_cpupool::{
     CpuFuture,
     CpuPool,
 };
+use lazy_static::lazy_static;
+use tempdir;
 use test::Bencher;
 use tiff::decoder::{
     Decoder,
@@ -37,6 +36,7 @@ use tiff::decoder::{
 };
 
 use n5::{
+    self,
     DatasetAttributes,
     DataType,
     N5Writer,

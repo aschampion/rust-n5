@@ -3,6 +3,11 @@
 use std;
 use std::io::{Read, Write};
 
+use serde::{
+    Deserialize,
+    Serialize,
+};
+
 
 pub mod raw;
 #[cfg(feature = "bzip")]
@@ -17,9 +22,9 @@ pub mod xz;
 
 /// Common interface for compressing writers and decompressing readers.
 pub trait Compression : Default {
-    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a>;
+    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<dyn Read + 'a>;
 
-    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a>;
+    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<dyn Write + 'a>;
 }
 
 /// Enumeration of known compression schemes.
@@ -52,7 +57,7 @@ impl Default for CompressionType {
 }
 
 impl Compression for CompressionType {
-    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a> {
+    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<dyn Read + 'a> {
         match *self {
             CompressionType::Raw(ref c) => c.decoder(r),
 
@@ -70,7 +75,7 @@ impl Compression for CompressionType {
         }
     }
 
-    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
+    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<dyn Write + 'a> {
         match *self {
             CompressionType::Raw(ref c) => c.encoder(w),
 
@@ -90,7 +95,7 @@ impl Compression for CompressionType {
 }
 
 impl std::fmt::Display for CompressionType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match *self {
             CompressionType::Raw(_) => "Raw",
 

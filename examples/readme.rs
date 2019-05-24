@@ -1,5 +1,3 @@
-extern crate n5;
-
 use n5::prelude::*;
 use n5::smallvec::smallvec;
 

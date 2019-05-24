@@ -1,5 +1,9 @@
 use std::io::{Read, Write};
 
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use xz2::read::XzDecoder;
 use xz2::write::XzEncoder;
 
@@ -26,11 +30,11 @@ impl Default for XzCompression {
 }
 
 impl Compression for XzCompression {
-    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a> {
+    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<dyn Read + 'a> {
         Box::new(XzDecoder::new(r))
     }
 
-    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
+    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<dyn Write + 'a> {
         // TODO: check that preset is non-negative.s
         Box::new(XzEncoder::new(w, self.preset as u32))
     }

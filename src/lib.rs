@@ -2,37 +2,9 @@
 //! format](https://github.com/saalfeldlab/n5) created by the Saalfeld lab at
 //! Janelia Research Campus.
 
-extern crate byteorder;
-#[cfg(feature = "bzip")]
-extern crate bzip2;
-#[cfg(feature = "gzip")]
-extern crate flate2;
-#[cfg(feature = "filesystem")]
-extern crate fs2;
-#[cfg(feature = "use_ndarray")]
-extern crate itertools;
-#[macro_use]
-extern crate lazy_static;
-#[cfg(feature = "lz")]
-extern crate lz4;
-#[cfg(feature = "use_ndarray")]
-extern crate ndarray;
-#[cfg(feature = "use_ndarray")]
-extern crate num_traits;
-extern crate serde;
-#[cfg_attr(feature = "filesystem", macro_use)]
-extern crate serde_json;
-#[macro_use]
-extern crate serde_derive;
+
 #[macro_use]
 pub extern crate smallvec;
-#[cfg(test)]
-extern crate tempdir;
-extern crate regex;
-#[cfg(feature = "filesystem")]
-extern crate walkdir;
-#[cfg(feature = "xz")]
-extern crate xz2;
 
 
 use std::cmp;
@@ -50,7 +22,11 @@ use byteorder::{
 };
 #[cfg(feature = "use_ndarray")]
 use itertools::Itertools;
-use serde::Serialize;
+use lazy_static::lazy_static;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use smallvec::SmallVec;
 
 use crate::compression::Compression;
@@ -342,7 +318,7 @@ impl DataType {
 }
 
 impl std::fmt::Display for DataType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
 }

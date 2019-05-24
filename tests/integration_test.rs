@@ -1,10 +1,4 @@
-extern crate n5;
-extern crate rand;
-#[macro_use]
-extern crate smallvec;
-extern crate tempdir;
-
-
+use smallvec::smallvec;
 use rand::Rng;
 
 use n5::prelude::*;

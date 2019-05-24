@@ -3,6 +3,10 @@ use std::io::{Read, Write};
 use flate2::Compression as GzCompression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 use super::{
     Compression,
@@ -42,11 +46,11 @@ impl Default for GzipCompression {
 }
 
 impl Compression for GzipCompression {
-    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a> {
+    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<dyn Read + 'a> {
         Box::new(GzDecoder::new(r))
     }
 
-    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
+    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<dyn Write + 'a> {
         Box::new(GzEncoder::new(w, self.get_effective_level()))
     }
 }

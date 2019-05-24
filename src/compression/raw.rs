@@ -1,5 +1,10 @@
 use std::io::{Read, Write};
 
+use serde::{
+    Deserialize,
+    Serialize,
+};
+
 use super::Compression;
 
 
@@ -7,11 +12,11 @@ use super::Compression;
 pub struct RawCompression;
 
 impl Compression for RawCompression {
-    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<Read + 'a> {
+    fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<dyn Read + 'a> {
         Box::new(r)
     }
 
-    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<Write + 'a> {
+    fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<dyn Write + 'a> {
         Box::new(w)
     }
 }
