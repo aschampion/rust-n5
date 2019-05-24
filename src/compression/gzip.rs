@@ -54,7 +54,7 @@ impl Compression for GzipCompression {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use compression::CompressionType;
+    use crate::compression::CompressionType;
 
     // Example from the n5 documentation spec.
     const TEST_BLOCK_I16_GZIP: [u8; 48] = [
@@ -75,13 +75,13 @@ mod tests {
 
     #[test]
     fn test_read_doc_spec_block() {
-        ::tests::test_read_doc_spec_block(
+        crate::tests::test_read_doc_spec_block(
             TEST_BLOCK_I16_GZIP.as_ref(),
             CompressionType::Gzip(GzipCompression::default()));
     }
 
     #[test]
     fn test_rw() {
-        ::tests::test_block_compression_rw(CompressionType::Gzip(GzipCompression::default()));
+        crate::tests::test_block_compression_rw(CompressionType::Gzip(GzipCompression::default()));
     }
 }

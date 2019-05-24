@@ -53,7 +53,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use smallvec::SmallVec;
 
-use ::compression::Compression;
+use crate::compression::Compression;
 
 pub mod compression;
 #[cfg(feature = "filesystem")]
@@ -61,7 +61,7 @@ pub mod filesystem;
 pub mod prelude;
 pub mod version;
 
-pub use version::Version;
+pub use crate::version::Version;
 
 
 const COORD_SMALLVEC_SIZE: usize = 6;

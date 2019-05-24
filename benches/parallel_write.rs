@@ -48,6 +48,7 @@ use n5::compression::{
     CompressionType,
 };
 use n5::filesystem::N5Filesystem;
+use n5::smallvec::smallvec;
 
 
 lazy_static! {
@@ -86,9 +87,9 @@ fn write<T, N5>(
         N5: N5Writer + Sync + Send + Clone + 'static,
         DataType: TypeReflection<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock {
-    let block_size = vec![BLOCK_DIM; 3];
+    let block_size = smallvec![BLOCK_DIM; 3];
     let data_attrs = DatasetAttributes::new(
-        vec![i64::from(BLOCK_DIM) * N_BLOCKS; 3],
+        smallvec![i64::from(BLOCK_DIM) * N_BLOCKS; 3],
         block_size.clone(),
         <DataType as TypeReflection<T>>::get_type_variant(),
         compression.clone(),
@@ -116,7 +117,7 @@ fn write<T, N5>(
                 all_jobs.push(pool.spawn_fn(move || {
                     let block_in = VecDataBlock::new(
                         bs,
-                        vec![x, y, z],
+                        smallvec![x, y, z],
                         bd);
                     ni.write_block(&pn, &da, &block_in)
                         .expect("Failed to write block");

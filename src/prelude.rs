@@ -11,7 +11,7 @@
 //! ```
 
 #[doc(no_inline)]
-pub use ::{
+pub use crate::{
     BlockCoord,
     BoundingBox,
     DatasetAttributes,
@@ -25,10 +25,10 @@ pub use ::{
     VecDataBlock,
 };
 #[doc(no_inline)]
-pub use ::compression::{
+pub use crate::compression::{
     self,
     CompressionType,
 };
 #[cfg(feature = "filesystem")]
 #[doc(no_inline)]
-pub use ::filesystem::N5Filesystem;
+pub use crate::filesystem::N5Filesystem;

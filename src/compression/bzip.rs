@@ -52,7 +52,7 @@ impl Compression for Bzip2Compression {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use compression::CompressionType;
+    use crate::compression::CompressionType;
 
     // Example from the n5 documentation spec.
     const TEST_BLOCK_I16_BZIP2: [u8; 59] = [
@@ -76,13 +76,13 @@ mod tests {
 
     #[test]
     fn test_read_doc_spec_block() {
-        ::tests::test_read_doc_spec_block(
+        crate::tests::test_read_doc_spec_block(
             TEST_BLOCK_I16_BZIP2.as_ref(),
             CompressionType::Bzip2(Bzip2Compression::default()));
     }
 
     #[test]
     fn test_rw() {
-        ::tests::test_block_compression_rw(CompressionType::Bzip2(Bzip2Compression::default()));
+        crate::tests::test_block_compression_rw(CompressionType::Bzip2(Bzip2Compression::default()));
     }
 }

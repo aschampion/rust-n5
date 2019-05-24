@@ -19,7 +19,7 @@ impl Compression for RawCompression {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use compression::CompressionType;
+    use crate::compression::CompressionType;
 
     // Example from the n5 documentation spec.
     const TEST_BLOCK_I16_RAW: [u8; 28] = [
@@ -38,13 +38,13 @@ mod tests {
 
     #[test]
     fn test_read_doc_spec_block() {
-        ::tests::test_read_doc_spec_block(
+        crate::tests::test_read_doc_spec_block(
             TEST_BLOCK_I16_RAW.as_ref(),
             CompressionType::Raw(RawCompression));
     }
 
     #[test]
     fn test_rw() {
-        ::tests::test_block_compression_rw(CompressionType::Raw(RawCompression));
+        crate::tests::test_block_compression_rw(CompressionType::Raw(RawCompression));
     }
 }

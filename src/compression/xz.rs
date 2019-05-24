@@ -39,7 +39,7 @@ impl Compression for XzCompression {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use compression::CompressionType;
+    use crate::compression::CompressionType;
 
     // Example from the n5 documentation spec.
     const TEST_BLOCK_I16_XZ: [u8; 84] = [
@@ -69,13 +69,13 @@ mod tests {
 
     #[test]
     fn test_read_doc_spec_block() {
-        ::tests::test_read_doc_spec_block(
+        crate::tests::test_read_doc_spec_block(
             TEST_BLOCK_I16_XZ.as_ref(),
             CompressionType::Xz(XzCompression::default()));
     }
 
     #[test]
     fn test_rw() {
-        ::tests::test_block_compression_rw(CompressionType::Xz(XzCompression::default()));
+        crate::tests::test_block_compression_rw(CompressionType::Xz(XzCompression::default()));
     }
 }

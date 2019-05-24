@@ -26,7 +26,7 @@ use serde_json::{
 };
 use walkdir::WalkDir;
 
-use ::{
+use crate::{
     DataBlock,
     DataBlockCreator,
     DataBlockMetadata,
@@ -62,7 +62,7 @@ impl N5Filesystem {
         if reader.exists("") {
             let version = reader.get_version()?;
 
-            if !::VERSION.is_compatible(&version) {
+            if !crate::VERSION.is_compatible(&version) {
                 return Err(Error::new(ErrorKind::Other, "TODO: Incompatible version"))
             }
         }
@@ -80,10 +80,10 @@ impl N5Filesystem {
 
         fs::create_dir_all(base_path)?;
 
-        if reader.get_version().map(|v| !v.is_compatible(&::VERSION)).unwrap_or(false) {
+        if reader.get_version().map(|v| !v.is_compatible(&crate::VERSION)).unwrap_or(false) {
             return Err(Error::new(ErrorKind::Other, "TODO: Incompatible version"))
         } else {
-            reader.set_attribute("", ::VERSION_ATTRIBUTE_KEY.to_owned(), ::VERSION.to_string())?;
+            reader.set_attribute("", crate::VERSION_ATTRIBUTE_KEY.to_owned(), crate::VERSION.to_string())?;
         }
 
         Ok(reader)
@@ -159,7 +159,7 @@ impl N5Reader for N5Filesystem {
         // TODO: dedicated error type should clean this up.
         Ok(Version::from_str(self
                 .get_attributes("")?
-                .get(::VERSION_ATTRIBUTE_KEY)
+                .get(crate::VERSION_ATTRIBUTE_KEY)
                     .ok_or_else(|| Error::new(ErrorKind::NotFound, "Version attribute not present"))?
                 .as_str().unwrap_or("")
             ).unwrap())
@@ -197,7 +197,7 @@ impl N5Reader for N5Filesystem {
             let file = File::open(block_file)?;
             file.lock_shared()?;
             let reader = BufReader::new(file);
-            Ok(Some(<::DefaultBlock as DefaultBlockReader<T, _>>::read_block(
+            Ok(Some(<crate::DefaultBlock as DefaultBlockReader<T, _>>::read_block(
                 reader,
                 data_attrs,
                 grid_position)?))
@@ -341,7 +341,7 @@ impl N5Writer for N5Filesystem {
         file.lock_exclusive()?;
 
         let buffer = BufWriter::new(file);
-        <::DefaultBlock as DefaultBlockWriter<T, _, _>>::write_block(
+        <crate::DefaultBlock as DefaultBlockWriter<T, _, _>>::write_block(
                 buffer,
                 data_attrs,
                 block)
@@ -366,7 +366,7 @@ mod tests {
         let read = N5Filesystem::open(path_str)
             .expect("Failed to open N5 filesystem");
 
-        assert_eq!(read.get_version().expect("Cannot read version"), *::VERSION);
+        assert_eq!(read.get_version().expect("Cannot read version"), *crate::VERSION);
         assert_eq!(read.list_attributes("").unwrap()["foo"], "bar");
     }
 
@@ -381,7 +381,7 @@ mod tests {
             smallvec![10, 10, 10],
             smallvec![5, 5, 5],
             DataType::INT32,
-            ::compression::CompressionType::Raw(::compression::raw::RawCompression::default()),
+            crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
         );
         create.create_dataset("foo/bar", &data_attrs)
             .expect("Failed to create dataset");
@@ -429,10 +429,10 @@ mod tests {
             smallvec![10, 10, 10],
             smallvec![5, 5, 5],
             DataType::INT32,
-            ::compression::CompressionType::Raw(::compression::raw::RawCompression::default()),
+            crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
         );
         let block_data: Vec<i32> = (0..125_i32).collect();
-        let block_in = ::VecDataBlock::new(
+        let block_in = crate::VecDataBlock::new(
             data_attrs.block_size.clone(),
             smallvec![0, 0, 0],
             block_data.clone());
