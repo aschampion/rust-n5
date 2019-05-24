@@ -99,6 +99,14 @@ pub trait N5Reader {
               VecDataBlock<T>: DataBlock<T>,
               T: Clone;
 
+    fn read_block_into<T: Clone, B: DataBlock<T>>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        grid_position: GridCoord,
+        block: &mut B,
+    ) -> Result<Option<()>, Error>;
+
     /// Read metadata about a block.
     fn block_metadata(
         &self,
@@ -234,9 +242,7 @@ pub trait TypeReflection<T> {
 pub trait DataBlockCreator<T: Clone> {
     fn create_data_block(
         &self,
-        block_size: BlockCoord,
-        grid_position: GridCoord,
-        num_el: usize,
+        header: BlockHeader,
     ) -> Option<VecDataBlock<T>>;
 }
 
@@ -251,15 +257,13 @@ macro_rules! data_type_block_creator {
         impl DataBlockCreator<$d_type> for DataType {
             fn create_data_block(
                 &self,
-                block_size: BlockCoord,
-                grid_position: GridCoord,
-                num_el: usize,
+                header: BlockHeader,
             ) -> Option<VecDataBlock<$d_type>> {
                 match *self {
                     DataType::$d_name => Some(VecDataBlock::<$d_type>::new(
-                        block_size,
-                        grid_position,
-                        vec![0. as $d_type; num_el],
+                        header.size,
+                        header.grid_position,
+                        vec![0. as $d_type; header.num_el],
                     )),
                     _ => None,
                 }
@@ -342,6 +346,16 @@ impl DatasetAttributes {
 }
 
 
+pub struct BlockHeader {
+    size: BlockCoord,
+    grid_position: GridCoord,
+    num_el: usize,
+}
+
+pub trait ReinitDataBlock {
+    fn reinitialize(&mut self, header: BlockHeader);
+}
+
 pub trait ReadableDataBlock {
     /// Unlike Java N5, read the stream directly into the block data instead
     /// of creating a copied byte buffer.
@@ -355,7 +369,7 @@ pub trait WriteableDataBlock {
 /// Common interface for data blocks of element (rust) type `T`.
 ///
 /// To enable custom types to be written to N5 volumes, implement this trait.
-pub trait DataBlock<T> : Into<Vec<T>> + ReadableDataBlock + WriteableDataBlock {
+pub trait DataBlock<T> : Into<Vec<T>> + ReinitDataBlock + ReadableDataBlock + WriteableDataBlock {
     fn get_size(&self) -> &[i32];
 
     fn get_grid_position(&self) -> &[i64];
@@ -381,6 +395,14 @@ impl<T: Clone> VecDataBlock<T> {
             grid_position,
             data,
         }
+    }
+}
+
+impl<T: Clone + Default> ReinitDataBlock for VecDataBlock<T> {
+    fn reinitialize(&mut self, header: BlockHeader) {
+        self.size = header.size;
+        self.grid_position = header.grid_position;
+        self.data.resize_with(header.num_el, Default::default);
     }
 }
 
@@ -456,7 +478,7 @@ impl<T: Clone> Into<Vec<T>> for VecDataBlock<T> {
 }
 
 impl<T: Clone> DataBlock<T> for VecDataBlock<T>
-        where VecDataBlock<T>: ReadableDataBlock + WriteableDataBlock {
+        where VecDataBlock<T>: ReinitDataBlock + ReadableDataBlock + WriteableDataBlock {
     fn get_size(&self) -> &[i32] {
         &self.size
     }
@@ -475,33 +497,64 @@ impl<T: Clone> DataBlock<T> for VecDataBlock<T>
 }
 
 
+pub trait DefaultBlockHeaderReader<R: std::io::Read> {
+    fn read_block_header(
+        buffer: &mut R,
+        grid_position: GridCoord,
+    ) -> std::io::Result<BlockHeader> {
+
+        let mode = buffer.read_i16::<BigEndian>()?;
+        let ndim = buffer.read_i16::<BigEndian>()?;
+        let mut size = smallvec![0; ndim as usize];
+        buffer.read_i32_into::<BigEndian>(&mut size)?;
+        let num_el = match mode {
+            0 => size.iter().product(),
+            1 => buffer.read_i32::<BigEndian>()?,
+            _ => return Err(Error::new(ErrorKind::InvalidData, "Unsupported block mode"))
+        };
+
+        Ok(BlockHeader {
+            size,
+            grid_position,
+            num_el: num_el as usize,
+        })
+    }
+}
+
 /// Reads blocks from rust readers.
-pub trait DefaultBlockReader<T: Clone, R: std::io::Read>
-        where DataType: DataBlockCreator<T> {
+pub trait DefaultBlockReader<T: Clone, R: std::io::Read>: DefaultBlockHeaderReader<R> {
     fn read_block(
         mut buffer: R,
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
     ) -> std::io::Result<VecDataBlock<T>>
-            where VecDataBlock<T>: DataBlock<T> {
-        let mode = buffer.read_i16::<BigEndian>()?;
-        let ndim = buffer.read_i16::<BigEndian>()?;
-        let mut dims = smallvec![0; ndim as usize];
-        buffer.read_i32_into::<BigEndian>(&mut dims)?;
-        let num_el = match mode {
-            0 => dims.iter().product(),
-            1 => buffer.read_i32::<BigEndian>()?,
-            _ => return Err(Error::new(ErrorKind::InvalidData, "Unsupported block mode"))
-        };
+            where DataType: DataBlockCreator<T>,
+                  VecDataBlock<T>: DataBlock<T> {
 
-        let mut block: VecDataBlock<T> = data_attrs.data_type.create_data_block(
-            dims,
-            grid_position,
-            num_el as usize).expect("Attempt to create data block for wrong type.");
+        let header = Self::read_block_header(&mut buffer, grid_position)?;
+
+        let mut block: VecDataBlock<T> = data_attrs.data_type.create_data_block(header)
+            .expect("Attempt to create data block for wrong type.");
         let mut decompressed = data_attrs.compression.decoder(buffer);
         block.read_data(&mut decompressed)?;
 
         Ok(block)
+    }
+
+    fn read_block_into<B: DataBlock<T>>(
+        mut buffer: R,
+        data_attrs: &DatasetAttributes,
+        grid_position: GridCoord,
+        block: &mut B,
+    ) -> std::io::Result<()> {
+
+        let header = Self::read_block_header(&mut buffer, grid_position)?;
+
+        block.reinitialize(header);
+        let mut decompressed = data_attrs.compression.decoder(buffer);
+        block.read_data(&mut decompressed)?;
+
+        Ok(())
     }
 }
 
@@ -535,8 +588,8 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
 // directly from trait name in Rust. Symptom of design problems with
 // `DefaultBlockReader`, etc.
 pub struct DefaultBlock;
-impl<T: Clone, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock
-        where DataType: DataBlockCreator<T> {}
+impl<R: std::io::Read> DefaultBlockHeaderReader<R> for DefaultBlock {}
+impl<T: Clone, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock {}
 impl<T, W: std::io::Write, B: DataBlock<T>> DefaultBlockWriter<T, W, B> for DefaultBlock {}
 
 

@@ -83,7 +83,7 @@ fn write<T, N5>(
         compression: &CompressionType,
         block_data: &[T],
         pool_size: usize,
-) where T: 'static + std::fmt::Debug + Clone + PartialEq + Sync + Send,
+) where T: 'static + std::fmt::Debug + Clone + PartialEq + Default + Sync + Send,
         N5: N5Writer + Sync + Send + Clone + 'static,
         DataType: TypeReflection<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock {

@@ -8,7 +8,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
         n: &N5,
         compression: &CompressionType,
         dim: usize,
-) where T: 'static + std::fmt::Debug + Clone + PartialEq,
+) where T: 'static + std::fmt::Debug + Clone + PartialEq + Default,
         rand::distributions::Standard: rand::distributions::Distribution<T>,
         DataType: TypeReflection<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock,
@@ -44,6 +44,15 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
         .expect("Failed to read block")
         .expect("Block is empty");
     assert_eq!(block_out.get_data(), &block_data);
+
+    let mut into_block = VecDataBlock::new(
+        smallvec![0; dim],
+        smallvec![0; dim],
+        vec![]);
+    n.read_block_into(path_name, &data_attrs, smallvec![0; dim], &mut into_block)
+        .expect("Failed to read block")
+        .expect("Block is empty");
+    assert_eq!(into_block.get_data(), &block_data);
 
     n.remove(path_name).unwrap();
 }

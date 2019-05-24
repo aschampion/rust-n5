@@ -207,6 +207,29 @@ impl N5Reader for N5Filesystem {
         }
     }
 
+    fn read_block_into<T: Clone, B: DataBlock<T>>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        grid_position: GridCoord,
+        block: &mut B,
+    ) -> Result<Option<()>> {
+        let block_file = self.get_data_block_path(path_name, &grid_position)?;
+        if block_file.is_file() {
+            let file = File::open(block_file)?;
+            file.lock_shared()?;
+            let reader = BufReader::new(file);
+            <crate::DefaultBlock as DefaultBlockReader<T, _>>::read_block_into(
+                reader,
+                data_attrs,
+                grid_position,
+                block)?;
+            Ok(Some(()))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn block_metadata(
         &self,
         path_name: &str,
