@@ -13,7 +13,6 @@
 #[doc(no_inline)]
 pub use crate::{
     BlockCoord,
-    BoundingBox,
     DatasetAttributes,
     DataBlock,
     DataBlockMetadata,

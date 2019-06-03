@@ -106,6 +106,9 @@ fn test_n5_filesystem_compressions() {
 #[cfg(feature = "use_ndarray")]
 #[test]
 fn test_read_ndarray() {
+    use n5::ndarray::prelude::*;
+
+
     let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
     let path_str = dir.path().to_str().unwrap();
 
