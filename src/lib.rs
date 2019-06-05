@@ -461,6 +461,11 @@ pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHe
         block: &mut B,
     ) -> std::io::Result<()> {
 
+        if data_attrs.data_type != T::VARIANT {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Attempt to create data block for wrong type."))
+        }
         let header = Self::read_block_header(&mut buffer, grid_position)?;
 
         block.reinitialize(header);
