@@ -35,7 +35,7 @@ impl<W: Write> Write for Wrapper<W> {
 impl<W: Write> Drop for Wrapper<W> {
     fn drop(&mut self) {
         if let Some(s) = self.s.take() {
-            s.finish();
+            s.finish().1.unwrap();
         }
     }
 }
