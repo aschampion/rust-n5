@@ -74,6 +74,7 @@ fn write<T, N5>(
 ) where T: 'static + std::fmt::Debug + ReflectedType + PartialEq + Default + Sync + Send,
         N5: N5Writer + Sync + Send + Clone + 'static,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock {
+
     let block_size = smallvec![BLOCK_DIM; 3];
     let data_attrs = DatasetAttributes::new(
         smallvec![i64::from(BLOCK_DIM) * N_BLOCKS; 3],
@@ -124,6 +125,7 @@ fn bench_write_dtype_compression<T, C>(b: &mut Bencher, pool_size: usize)
             C: compression::Compression,
             CompressionType: std::convert::From<C>,
             VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock {
+
     let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
     let path_str = dir.path().to_str().unwrap();
 

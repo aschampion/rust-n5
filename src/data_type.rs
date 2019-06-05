@@ -65,50 +65,35 @@ impl std::fmt::Display for DataType {
 /// The supertraits are not necessary for this trait, but are used to
 /// remove redundant bounds elsewhere when operating generically over
 /// data types.
-pub trait ReflectedType: Clone {
+pub trait ReflectedType: Clone + Default {
     const VARIANT: DataType;
-}
 
-// TODO: replace this with a generic inherent function and instead check that
-// dataset DataType is expected type (via `ReflectedType` trait).
-pub trait DataBlockCreator<T: Clone> {
     fn create_data_block(
-        &self,
         header: BlockHeader,
-    ) -> Option<VecDataBlock<T>>;
+    ) -> VecDataBlock<Self> {
+        VecDataBlock::<Self>::new(
+            header.size,
+            header.grid_position,
+            vec![Self::default(); header.num_el],
+        )
+    }
 }
 
-macro_rules! data_type_block_creator {
+macro_rules! reflected_type {
     ($d_name:ident, $d_type:ty) => {
         impl ReflectedType for $d_type {
             const VARIANT: DataType = DataType::$d_name;
         }
-
-        impl DataBlockCreator<$d_type> for DataType {
-            fn create_data_block(
-                &self,
-                header: BlockHeader,
-            ) -> Option<VecDataBlock<$d_type>> {
-                match *self {
-                    DataType::$d_name => Some(VecDataBlock::<$d_type>::new(
-                        header.size,
-                        header.grid_position,
-                        vec![0. as $d_type; header.num_el],
-                    )),
-                    _ => None,
-                }
-            }
-        }
     }
 }
 
-data_type_block_creator!(UINT8,  u8);
-data_type_block_creator!(UINT16, u16);
-data_type_block_creator!(UINT32, u32);
-data_type_block_creator!(UINT64, u64);
-data_type_block_creator!(INT8,  i8);
-data_type_block_creator!(INT16, i16);
-data_type_block_creator!(INT32, i32);
-data_type_block_creator!(INT64, i64);
-data_type_block_creator!(FLOAT32, f32);
-data_type_block_creator!(FLOAT64, f64);
+reflected_type!(UINT8,  u8);
+reflected_type!(UINT16, u16);
+reflected_type!(UINT32, u32);
+reflected_type!(UINT64, u64);
+reflected_type!(INT8,  i8);
+reflected_type!(INT16, i16);
+reflected_type!(INT32, i32);
+reflected_type!(INT64, i64);
+reflected_type!(FLOAT32, f32);
+reflected_type!(FLOAT64, f64);

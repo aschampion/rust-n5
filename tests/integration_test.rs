@@ -11,7 +11,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
 ) where T: 'static + std::fmt::Debug + ReflectedType + PartialEq + Default,
         rand::distributions::Standard: rand::distributions::Distribution<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock,
-        DataType: n5::DataBlockCreator<T> {
+{
     let block_size: BlockCoord = (1..=dim as i32).rev().map(|d| d*5).collect();
     let data_attrs = DatasetAttributes::new(
         (1..=dim as i64).map(|d| d*100).collect(),

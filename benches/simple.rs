@@ -23,7 +23,7 @@ fn test_block_compression_rw<T>(
 ) where T: 'static + std::fmt::Debug + ReflectedType + PartialEq + Default,
         rand::distributions::Standard: rand::distributions::Distribution<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock,
-        DataType: n5::DataBlockCreator<T> {
+{
 
     let data_attrs = DatasetAttributes::new(
         smallvec![1024, 1024, 1024],

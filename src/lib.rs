@@ -97,11 +97,10 @@ pub trait N5Reader {
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
     ) -> Result<Option<VecDataBlock<T>>, Error>
-        where DataType: DataBlockCreator<T>,
-              VecDataBlock<T>: DataBlock<T>,
-              T: Clone;
+        where VecDataBlock<T>: DataBlock<T>,
+              T: ReflectedType;
 
-    fn read_block_into<T: Clone, B: DataBlock<T>>(
+    fn read_block_into<T: ReflectedType, B: DataBlock<T>>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
@@ -433,19 +432,22 @@ pub trait DefaultBlockHeaderReader<R: std::io::Read> {
 }
 
 /// Reads blocks from rust readers.
-pub trait DefaultBlockReader<T: Clone, R: std::io::Read>: DefaultBlockHeaderReader<R> {
+pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHeaderReader<R> {
     fn read_block(
         mut buffer: R,
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
     ) -> std::io::Result<VecDataBlock<T>>
-            where DataType: DataBlockCreator<T>,
-                  VecDataBlock<T>: DataBlock<T> {
+            where VecDataBlock<T>: DataBlock<T> {
 
+        if data_attrs.data_type != T::VARIANT {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Attempt to create data block for wrong type."))
+        }
         let header = Self::read_block_header(&mut buffer, grid_position)?;
 
-        let mut block: VecDataBlock<T> = data_attrs.data_type.create_data_block(header)
-            .expect("Attempt to create data block for wrong type.");
+        let mut block = T::create_data_block(header);
         let mut decompressed = data_attrs.compression.decoder(buffer);
         block.read_data(&mut decompressed)?;
 
@@ -500,7 +502,7 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
 // `DefaultBlockReader`, etc.
 pub struct DefaultBlock;
 impl<R: std::io::Read> DefaultBlockHeaderReader<R> for DefaultBlock {}
-impl<T: Clone, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock {}
+impl<T: ReflectedType, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock {}
 impl<T, W: std::io::Write, B: DataBlock<T>> DefaultBlockWriter<T, W, B> for DefaultBlock {}
 
 

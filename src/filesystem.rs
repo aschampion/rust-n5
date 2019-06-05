@@ -29,15 +29,14 @@ use walkdir::WalkDir;
 
 use crate::{
     DataBlock,
-    DataBlockCreator,
     DataBlockMetadata,
-    DataType,
     DatasetAttributes,
     DefaultBlockReader,
     DefaultBlockWriter,
     GridCoord,
     N5Reader,
     N5Writer,
+    ReflectedType,
     VecDataBlock,
     Version,
 };
@@ -190,9 +189,8 @@ impl N5Reader for N5Filesystem {
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
     ) -> Result<Option<VecDataBlock<T>>>
-            where DataType: DataBlockCreator<T>,
-                  VecDataBlock<T>: DataBlock<T>,
-                  T: Clone {
+            where VecDataBlock<T>: DataBlock<T>,
+                  T: ReflectedType {
         let block_file = self.get_data_block_path(path_name, &grid_position)?;
         if block_file.is_file() {
             let file = File::open(block_file)?;
@@ -207,7 +205,7 @@ impl N5Reader for N5Filesystem {
         }
     }
 
-    fn read_block_into<T: Clone, B: DataBlock<T>>(
+    fn read_block_into<T: ReflectedType, B: DataBlock<T>>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
@@ -375,6 +373,7 @@ impl N5Writer for N5Filesystem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::DataType;
     use tempdir::TempDir;
 
     #[test]
@@ -445,7 +444,6 @@ mod tests {
     fn create_block_rw() {
         let dir = TempDir::new("rust_n5_tests").unwrap();
         let path_str = dir.path().to_str().unwrap();
-        // let path_str = "tmp";
 
         let create = N5Filesystem::open_or_create(path_str)
             .expect("Failed to create N5 filesystem");

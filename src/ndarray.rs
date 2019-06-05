@@ -6,11 +6,10 @@ use itertools::Itertools;
 use crate::{
     CoordVec,
     DataBlock,
-    DataBlockCreator,
     DatasetAttributes,
-    DataType,
     GridCoord,
     N5Reader,
+    ReflectedType,
     VecDataBlock,
 };
 
@@ -50,9 +49,8 @@ pub trait N5NdarrayReader : N5Reader {
         data_attrs: &DatasetAttributes,
         bbox: &BoundingBox,
     ) -> Result<ndarray::Array<T, ndarray::Dim<ndarray::IxDynImpl>>, Error>
-        where DataType: DataBlockCreator<T>,
-              VecDataBlock<T>: DataBlock<T>,
-              T: Clone + num_traits::identities::Zero {
+        where VecDataBlock<T>: DataBlock<T>,
+              T: ReflectedType + num_traits::identities::Zero {
 
         use ndarray::{
             Array,
@@ -180,6 +178,7 @@ impl<T: Iterator<Item = Vec<i64>>> ExactSizeIterator for CoordIterator<T> {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::DataType;
 
     #[test]
     fn test_dataset_attributes_coord_iter() {
