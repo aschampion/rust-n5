@@ -23,22 +23,78 @@ pub enum DataType {
     FLOAT64,
 }
 
+/// Replace all RsType tokens with the provide type.
+#[macro_export]
+macro_rules! data_type_rstype_replace {
+    // Open parenthesis.
+    ($rstype:ty, @($($stack:tt)*) ($($first:tt)*) $($rest:tt)*) => {
+        data_type_rstype_replace!($rstype, @(() $($stack)*) $($first)* __paren $($rest)*)
+    };
+
+    // Open square bracket.
+    ($rstype:ty, @($($stack:tt)*) [$($first:tt)*] $($rest:tt)*) => {
+        data_type_rstype_replace!($rstype, @(() $($stack)*) $($first)* __bracket $($rest)*)
+    };
+
+    // Open curly brace.
+    ($rstype:ty, @($($stack:tt)*) {$($first:tt)*} $($rest:tt)*) => {
+        data_type_rstype_replace!($rstype, @(() $($stack)*) $($first)* __brace $($rest)*)
+    };
+
+    // Close parenthesis.
+    ($rstype:ty, @(($($close:tt)*) ($($top:tt)*) $($stack:tt)*) __paren $($rest:tt)*) => {
+        data_type_rstype_replace!($rstype, @(($($top)* ($($close)*)) $($stack)*) $($rest)*)
+    };
+
+    // Close square bracket.
+    ($rstype:ty, @(($($close:tt)*) ($($top:tt)*) $($stack:tt)*) __bracket $($rest:tt)*) => {
+        data_type_rstype_replace!($rstype, @(($($top)* [$($close)*]) $($stack)*) $($rest)*)
+    };
+
+    // Close curly brace.
+    ($rstype:ty, @(($($close:tt)*) ($($top:tt)*) $($stack:tt)*) __brace $($rest:tt)*) => {
+        data_type_rstype_replace!($rstype, @(($($top)* {$($close)*}) $($stack)*) $($rest)*)
+    };
+
+    // Replace `RsType` token with $rstype.
+    ($rstype:ty, @(($($top:tt)*) $($stack:tt)*) RsType $($rest:tt)*) => {
+        data_type_rstype_replace!($rstype, @(($($top)* $rstype) $($stack)*) $($rest)*)
+    };
+
+    // Munch a token that is not `RsType`.
+    ($rstype:ty, @(($($top:tt)*) $($stack:tt)*) $first:tt $($rest:tt)*) => {
+        data_type_rstype_replace!($rstype, @(($($top)* $first) $($stack)*) $($rest)*)
+    };
+
+    // Terminal case.
+    ($rstype:ty, @(($($top:tt)+))) => {
+        $($top)+
+    };
+
+    // Initial case.
+    ($rstype:ty, $($input:tt)+) => {
+        data_type_rstype_replace!($rstype, @(()) $($input)*)
+    };
+}
+
+/// Match a DataType-valued expression, and in each arm repeat the provided
+/// code block with the token `RsType` replaced with the primitive type
+/// appropriate for that arm.
 #[macro_export]
 macro_rules! data_type_match {
-    ($match_expr:ident, $ret:ty, $expr:block) => {
+    ($match_expr:expr, $($expr:tt)*) => {
         {
-            fn inner<RsType: $crate::ReflectedType>() -> $ret $expr;
             match $match_expr {
-                $crate::DataType::UINT8 => inner::<u8>(),
-                $crate::DataType::UINT16 => inner::<u16>(),
-                $crate::DataType::UINT32 => inner::<u32>(),
-                $crate::DataType::UINT64 => inner::<u64>(),
-                $crate::DataType::INT8 => inner::<i8>(),
-                $crate::DataType::INT16 => inner::<i16>(),
-                $crate::DataType::INT32 => inner::<i32>(),
-                $crate::DataType::INT64 => inner::<i64>(),
-                $crate::DataType::FLOAT32 => inner::<f32>(),
-                $crate::DataType::FLOAT64 => inner::<f64>(),
+                $crate::DataType::UINT8 => $crate::data_type_rstype_replace!(u8, $($expr)*),
+                $crate::DataType::UINT16 => $crate::data_type_rstype_replace!(u16, $($expr)*),
+                $crate::DataType::UINT32 => $crate::data_type_rstype_replace!(u32, $($expr)*),
+                $crate::DataType::UINT64 => $crate::data_type_rstype_replace!(u64, $($expr)*),
+                $crate::DataType::INT8 => $crate::data_type_rstype_replace!(i8, $($expr)*),
+                $crate::DataType::INT16 => $crate::data_type_rstype_replace!(i16, $($expr)*),
+                $crate::DataType::INT32 => $crate::data_type_rstype_replace!(i32, $($expr)*),
+                $crate::DataType::INT64 => $crate::data_type_rstype_replace!(i64, $($expr)*),
+                $crate::DataType::FLOAT32 => $crate::data_type_rstype_replace!(f32, $($expr)*),
+                $crate::DataType::FLOAT64 => $crate::data_type_rstype_replace!(f64, $($expr)*),
             }
         }
     };
@@ -47,7 +103,8 @@ macro_rules! data_type_match {
 impl DataType {
     /// Boilerplate method for reflection of primitive type sizes.
     pub fn size_of(self) -> usize {
-        data_type_match!(self, usize, {
+        data_type_match!(self,
+            {
                 std::mem::size_of::<RsType>()
             }
         )
@@ -97,3 +154,27 @@ reflected_type!(INT32, i32);
 reflected_type!(INT64, i64);
 reflected_type!(FLOAT32, f32);
 reflected_type!(FLOAT64, f64);
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_data_type_reflection<T: ReflectedType>() {
+        assert_eq!(std::mem::size_of::<T>(), T::VARIANT.size_of());
+    }
+
+    #[test]
+    fn test_all_data_type_reflections() {
+        test_data_type_reflection::<u8>();
+        test_data_type_reflection::<u16>();
+        test_data_type_reflection::<u32>();
+        test_data_type_reflection::<u64>();
+        test_data_type_reflection::<i8>();
+        test_data_type_reflection::<i16>();
+        test_data_type_reflection::<i32>();
+        test_data_type_reflection::<i64>();
+        test_data_type_reflection::<f32>();
+        test_data_type_reflection::<f64>();
+    }
+}

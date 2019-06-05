@@ -33,7 +33,8 @@ use smallvec::SmallVec;
 use crate::compression::Compression;
 
 pub mod compression;
-mod data_type;
+#[macro_use]
+pub mod data_type;
 pub use data_type::*;
 #[cfg(feature = "filesystem")]
 pub mod filesystem;
