@@ -60,17 +60,17 @@ impl std::fmt::Display for DataType {
     }
 }
 
-pub trait ReflectedType {
+/// Trait implemented by primitive types that are reflected in N5.
+///
+/// The supertraits are not necessary for this trait, but are used to
+/// remove redundant bounds elsewhere when operating generically over
+/// data types.
+pub trait ReflectedType: Clone {
     const VARIANT: DataType;
 }
 
-/// Reflect rust types to type values.
-pub trait TypeReflection<T> {
-    fn get_type_variant() -> Self;
-}
-
 // TODO: replace this with a generic inherent function and instead check that
-// dataset DataType is expected type (via `TypeReflection` trait).
+// dataset DataType is expected type (via `ReflectedType` trait).
 pub trait DataBlockCreator<T: Clone> {
     fn create_data_block(
         &self,
@@ -80,12 +80,6 @@ pub trait DataBlockCreator<T: Clone> {
 
 macro_rules! data_type_block_creator {
     ($d_name:ident, $d_type:ty) => {
-        impl TypeReflection<$d_type> for DataType {
-            fn get_type_variant() -> DataType {
-                DataType::$d_name
-            }
-        }
-
         impl ReflectedType for $d_type {
             const VARIANT: DataType = DataType::$d_name;
         }

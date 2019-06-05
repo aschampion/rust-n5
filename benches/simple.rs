@@ -20,16 +20,15 @@ use n5::smallvec::smallvec;
 fn test_block_compression_rw<T>(
         compression: compression::CompressionType,
         b: &mut Bencher
-) where T: 'static + std::fmt::Debug + Clone + PartialEq + Default,
+) where T: 'static + std::fmt::Debug + ReflectedType + PartialEq + Default,
         rand::distributions::Standard: rand::distributions::Distribution<T>,
-        DataType: TypeReflection<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock,
         DataType: n5::DataBlockCreator<T> {
 
     let data_attrs = DatasetAttributes::new(
         smallvec![1024, 1024, 1024],
         smallvec![64, 64, 64],
-        <DataType as TypeReflection<T>>::get_type_variant(),
+        T::VARIANT,
         compression,
     );
     let numel = data_attrs.get_block_num_elements();

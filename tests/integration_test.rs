@@ -8,16 +8,15 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
         n: &N5,
         compression: &CompressionType,
         dim: usize,
-) where T: 'static + std::fmt::Debug + Clone + PartialEq + Default,
+) where T: 'static + std::fmt::Debug + ReflectedType + PartialEq + Default,
         rand::distributions::Standard: rand::distributions::Distribution<T>,
-        DataType: TypeReflection<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock,
         DataType: n5::DataBlockCreator<T> {
     let block_size: BlockCoord = (1..=dim as i32).rev().map(|d| d*5).collect();
     let data_attrs = DatasetAttributes::new(
         (1..=dim as i64).map(|d| d*100).collect(),
         block_size.clone(),
-        <DataType as TypeReflection<T>>::get_type_variant(),
+        T::VARIANT,
         compression.clone(),
     );
     let numel = data_attrs.get_block_num_elements();
@@ -128,7 +127,7 @@ fn test_read_ndarray() {
     let data_attrs = DatasetAttributes::new(
         smallvec![3, 300, 200, 100],
         block_size.clone(),
-        <DataType as TypeReflection<i32>>::get_type_variant(),
+        i32::VARIANT,
         CompressionType::default(),
     );
     let numel = data_attrs.get_block_num_elements();

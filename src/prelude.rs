@@ -20,7 +20,7 @@ pub use crate::{
     GridCoord,
     N5Reader,
     N5Writer,
-    TypeReflection,
+    ReflectedType,
     VecDataBlock,
 };
 #[doc(no_inline)]

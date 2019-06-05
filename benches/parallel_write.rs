@@ -35,19 +35,7 @@ use tiff::decoder::{
     DecodingResult,
 };
 
-use n5::{
-    self,
-    DatasetAttributes,
-    DataType,
-    N5Writer,
-    TypeReflection,
-    VecDataBlock,
-};
-use n5::compression::{
-    self,
-    CompressionType,
-};
-use n5::filesystem::N5Filesystem;
+use n5::prelude::*;
 use n5::smallvec::smallvec;
 
 
@@ -83,15 +71,14 @@ fn write<T, N5>(
         compression: &CompressionType,
         block_data: &[T],
         pool_size: usize,
-) where T: 'static + std::fmt::Debug + Clone + PartialEq + Default + Sync + Send,
+) where T: 'static + std::fmt::Debug + ReflectedType + PartialEq + Default + Sync + Send,
         N5: N5Writer + Sync + Send + Clone + 'static,
-        DataType: TypeReflection<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock {
     let block_size = smallvec![BLOCK_DIM; 3];
     let data_attrs = DatasetAttributes::new(
         smallvec![i64::from(BLOCK_DIM) * N_BLOCKS; 3],
         block_size.clone(),
-        <DataType as TypeReflection<T>>::get_type_variant(),
+        T::VARIANT,
         compression.clone(),
     );
 
@@ -132,11 +119,10 @@ fn write<T, N5>(
 
 fn bench_write_dtype_compression<T, C>(b: &mut Bencher, pool_size: usize)
         where
-            T: 'static + Clone + Default + PartialEq + std::fmt::Debug +
+            T: 'static + ReflectedType + Default + PartialEq + std::fmt::Debug +
                 std::convert::From<i8> + Sync + Send,
             C: compression::Compression,
             CompressionType: std::convert::From<C>,
-            DataType: TypeReflection<T>,
             VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock {
     let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
     let path_str = dir.path().to_str().unwrap();
