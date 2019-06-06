@@ -101,6 +101,7 @@ pub trait N5Reader {
         where VecDataBlock<T>: DataBlock<T>,
               T: ReflectedType;
 
+    /// Read a single dataset block into an existing buffer.
     fn read_block_into<T: ReflectedType, B: DataBlock<T>>(
         &self,
         path_name: &str,

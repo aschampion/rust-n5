@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2019-06-05
+### Added
+- `N5Reader::read_block_into`: read a block into an existing `VecDataBlock`
+  without allocating a new block.
+- `data_type_match!`: a macro to dispatch a primitive-type generic block of
+  code based on a `DataType`.
+- `ReflectedType` trait, which supercedes the `TypeReflection` trait,
+  `DataBlockCreator` trait, and `Clone` bound on primitive types.
+- `N5NdarrayWriter` supertrait that provides a `write_ndarray` method to write
+  ndarrays serially to blocks.
+
+### Changed
+- All coordinates are now `SmallVec` types `GridCoord` and `BlockCoord`. This
+  avoids allocations for datasets with <= 6 dimensions.
+- ndarray reading is now in a `N5NdarrayReader` supertrait.
+
+### Removed
+- `TypeReflection` trait.
+- `DataBlockCreator` trait.
+
 ## [0.3.0] - 2019-01-16
 ### Changed
 - `DataType` implements `Display`.

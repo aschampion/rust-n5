@@ -12,7 +12,7 @@ Compatible with Java N5 Version 2.0.2.
 
 ```toml
 [dependencies]
-n5 = "0.2"
+n5 = "0.4"
 ```
 
 ```rust
