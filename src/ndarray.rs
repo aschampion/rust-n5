@@ -1,14 +1,28 @@
 use std::cmp;
-use std::io::Error;
+use std::io::{
+    Error,
+    ErrorKind,
+};
+use std::ops::{
+    Sub,
+};
 
 use itertools::Itertools;
+use ndarray::{
+    Array,
+    IxDyn,
+    ShapeBuilder,
+    SliceInfo,
+};
 
 use crate::{
+    BlockCoord,
     CoordVec,
     DataBlock,
     DatasetAttributes,
     GridCoord,
     N5Reader,
+    N5Writer,
     ReflectedType,
     VecDataBlock,
 };
@@ -18,12 +32,13 @@ pub mod prelude {
     pub use super::{
         BoundingBox,
         N5NdarrayReader,
+        N5NdarrayWriter,
     };
 }
 
 
 /// Specifes the extents of an axis-aligned bounding box.
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BoundingBox {
     offset: GridCoord,
     size: GridCoord,
@@ -31,9 +46,74 @@ pub struct BoundingBox {
 
 impl BoundingBox {
     pub fn new(offset: GridCoord, size: GridCoord) -> BoundingBox {
+        assert_eq!(offset.len(), size.len());
+
         BoundingBox {
             offset,
             size,
+        }
+    }
+
+    pub fn size_block(&self) -> BlockCoord {
+        self.size.iter().map(|n| *n as i32).collect()
+    }
+
+    pub fn size_ndarray_shape(&self) -> CoordVec<usize> {
+        self.size.iter().map(|n| *n as usize).collect()
+    }
+
+    pub fn intersect(&mut self, other: &BoundingBox) {
+        assert_eq!(self.offset.len(), other.offset.len());
+
+        self.size.iter_mut()
+            .zip(self.offset.iter_mut())
+            .zip(other.size.iter())
+            .zip(other.offset.iter())
+            .for_each(|(((s, o), os), oo)| {
+                let new_o = std::cmp::max(*oo, *o);
+                *s = std::cmp::max(0, std::cmp::min(*s + *o, *oo + *os) - new_o);
+                *o = new_o;
+            });
+    }
+
+    pub fn union(&mut self, other: &BoundingBox) {
+        assert_eq!(self.offset.len(), other.offset.len());
+
+        self.size.iter_mut()
+            .zip(self.offset.iter_mut())
+            .zip(other.size.iter())
+            .zip(other.offset.iter())
+            .for_each(|(((s, o), os), oo)| {
+                let new_o = std::cmp::min(*oo, *o);
+                *s = std::cmp::max(*s + *o, *oo + *os) - new_o;
+                *o = new_o;
+            });
+    }
+
+    pub fn end(&self) -> impl Iterator<Item=i64> + '_ {
+        self.offset.iter().zip(self.size.iter()).map(|(o, s)| o + s)
+    }
+
+    pub fn to_ndarray_slice(&self) -> CoordVec<ndarray::SliceOrIndex> {
+        self.offset.iter().zip(self.end())
+            .map(|(&start, end)| ndarray::SliceOrIndex::Slice {
+                start: start as isize,
+                end: Some(end as isize),
+                step: 1,
+            }).collect()
+    }
+}
+
+impl Sub<&GridCoord> for BoundingBox {
+    type Output = Self;
+
+    fn sub(self, other: &GridCoord) -> Self::Output {
+        Self {
+            offset: self.offset.iter()
+                .zip(other.iter())
+                .map(|(s, o)| s - o)
+                .collect(),
+            size: self.size.clone(),
         }
     }
 }
@@ -52,67 +132,31 @@ pub trait N5NdarrayReader : N5Reader {
         where VecDataBlock<T>: DataBlock<T>,
               T: ReflectedType + num_traits::identities::Zero {
 
-        use ndarray::{
-            Array,
-            IxDyn,
-            ShapeBuilder,
-            SliceInfo,
-        };
+        if bbox.offset.len() != data_attrs.get_ndim() {
+            return Err(Error::new(ErrorKind::InvalidData, "Wrong number of dimensions"));
+        }
 
-        // TODO: Verbose vector math and lots of allocations.
-        let floor_coord = bbox.offset.iter()
-            .zip(&data_attrs.block_size)
-            .map(|(&o, &bs)| o / i64::from(bs));
-        let ceil_coord = bbox.offset.iter()
-            .zip(&bbox.size)
-            .zip(&data_attrs.block_size)
-            .map(|((&o, &s), &bs)| (o + s + i64::from(bs) - 1) / i64::from(bs));
-        let offset = ndarray::arr1(&bbox.offset);
-        let size = ndarray::arr1(&bbox.size);
-        let arr_end = &offset + &size;
-        let norm_block_size = Array::from_iter(data_attrs.block_size.iter().map(|n| i64::from(*n)));
+        let mut arr = Array::zeros(bbox.size_ndarray_shape().f());
 
-        let coord_iter = floor_coord.zip(ceil_coord)
-            .map(|(min, max)| min..max)
-            .multi_cartesian_product();
+        for coord in data_attrs.bounded_coord_iter(bbox) {
 
-        let arr_size: CoordVec<usize> = bbox.size.iter().map(|n| *n as usize).collect();
-        let arr_size_a = Array::from_iter(arr_size.iter().map(|n| *n as i64));
-        let mut arr = Array::zeros(arr_size.f());
-
-        for coord in coord_iter {
             let block_opt = self.read_block(path_name, data_attrs, GridCoord::from(&coord[..]))?;
 
             if let Some(block) = block_opt {
-                let block_size = Array::from_iter(block.get_size().iter().map(|n| i64::from(*n)));
-                let block_size_usize: CoordVec<usize> = block.get_size().iter().map(|n| *n as usize).collect();
-                let coord_a = Array::from_vec(coord);
 
-                let block_start = &coord_a * &norm_block_size;
-                let block_end = &block_start + &block_size;
-                let block_min = (&offset - &block_start).mapv(|v| cmp::max(v, 0));
-                let block_max = block_size.clone() - (&block_end - &arr_end).mapv(|v| cmp::max(v, 0));
+                let block_bb = block.get_bounds(data_attrs);
+                let mut read_bb = bbox.clone();
+                read_bb.intersect(&block_bb);
+                let arr_read_bb = read_bb.clone() - &bbox.offset;
+                let block_read_bb = read_bb.clone() - &block_bb.offset;
 
-                let arr_start = (&block_start - &offset).mapv(|v| cmp::max(v, 0));
-                let arr_end = arr_size_a.clone() - (&arr_end - &block_end).mapv(|v| cmp::max(v, 0));
-
-                let arr_slice: CoordVec<ndarray::SliceOrIndex> = arr_start.iter().zip(&arr_end)
-                    .map(|(&start, &end)| ndarray::SliceOrIndex::Slice {
-                        start: start as isize,
-                        end: Some(end as isize),
-                        step: 1,
-                    }).collect();
+                let arr_slice = arr_read_bb.to_ndarray_slice();
                 let mut arr_view = arr.slice_mut(SliceInfo::<_, IxDyn>::new(arr_slice).unwrap().as_ref());
 
-                let block_slice: CoordVec<ndarray::SliceOrIndex> = block_min.iter().zip(&block_max)
-                    .map(|(&start, &end)| ndarray::SliceOrIndex::Slice {
-                        start: start as isize,
-                        end: Some(end as isize),
-                        step: 1,
-                    }).collect();
+                let block_slice = block_read_bb.to_ndarray_slice();
 
                 // N5 datasets are stored f-order/column-major.
-                let block_data = Array::from_shape_vec(block_size_usize.f(), block.into())
+                let block_data = Array::from_shape_vec(block_bb.size_ndarray_shape().f(), block.into())
                     .expect("TODO: block ndarray failed");
                 let block_view = block_data.slice(SliceInfo::<_, IxDyn>::new(block_slice).unwrap().as_ref());
 
@@ -126,6 +170,95 @@ pub trait N5NdarrayReader : N5Reader {
 
 impl<T: N5Reader> N5NdarrayReader for T {}
 
+
+pub trait N5NdarrayWriter : N5Writer {
+    /// Write an abitrary bounding box from an ndarray into an N5 volume,
+    /// writing blocks in serial as necessary.
+    fn write_ndarray<T>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        offset: GridCoord,
+        array: &ndarray::Array<T, ndarray::Dim<ndarray::IxDynImpl>>,
+        fill_val: T,
+    ) -> Result<(), Error>
+        where VecDataBlock<T>: DataBlock<T>,
+              T: ReflectedType + num_traits::identities::Zero {
+
+        if array.ndim() != data_attrs.get_ndim() {
+            return Err(Error::new(ErrorKind::InvalidData, "Wrong number of dimensions"));
+        }
+        let bbox = BoundingBox {
+            offset,
+            size: array.shape().iter().map(|n| *n as i64).collect(),
+        };
+
+        for coord in data_attrs.bounded_coord_iter(&bbox) {
+
+            let grid_coord = GridCoord::from(&coord[..]);
+            let nom_block_bb = data_attrs.get_block_bounds(&grid_coord);
+            let mut write_bb = nom_block_bb.clone();
+            write_bb.intersect(&bbox);
+            let arr_bb = write_bb.clone() - &bbox.offset;
+
+            let arr_slice = arr_bb.to_ndarray_slice();
+            let arr_view = array.slice(SliceInfo::<_, IxDyn>::new(arr_slice).unwrap().as_ref());
+
+            if write_bb == nom_block_bb {
+
+                // No need to read whether there is an extant block if it is
+                // going to be entirely overwrriten.
+                let block_vec = arr_view.t().iter().cloned().collect();
+                let block = VecDataBlock::new(write_bb.size_block(), coord.into(), block_vec);
+
+                self.write_block(path_name, data_attrs, &block)?;
+
+            } else {
+
+                let block_opt = self.read_block(path_name, data_attrs, grid_coord.clone())?;
+
+                let (block_bb, mut block_array) = match block_opt {
+                    Some(block) => {
+                        let block_bb = block.get_bounds(data_attrs);
+                        let block_array = Array::from_shape_vec(block_bb.size_ndarray_shape().f(), block.into())
+                            .expect("TODO: block ndarray failed");
+                        (block_bb, block_array)
+                    },
+                    None => {
+                        // If no block exists, need to write from its origin.
+                        let mut block_bb = write_bb.clone();
+                        block_bb.size.iter_mut()
+                            .zip(write_bb.offset.iter())
+                            .zip(nom_block_bb.offset.iter())
+                            .for_each(|((s, o), g)| *s += *o - *g);
+                        block_bb.offset = nom_block_bb.offset.clone();
+                        let block_size_usize = block_bb.size_ndarray_shape();
+
+                        let block_array = Array::from_elem(&block_size_usize[..], fill_val.clone()).into_dyn();
+                        (block_bb, block_array)
+                    }
+                };
+
+                let block_write_bb = write_bb.clone() - &block_bb.offset;
+                let block_slice = block_write_bb.to_ndarray_slice();
+                let mut block_view = block_array.slice_mut(SliceInfo::<_, IxDyn>::new(block_slice).unwrap().as_ref());
+
+                block_view.assign(&arr_view);
+
+                let block_vec = block_array.t().iter().cloned().collect();
+                let block = VecDataBlock::new(block_bb.size_block(), coord.into(), block_vec);
+
+                self.write_block(path_name, data_attrs, &block)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<T: N5Writer> N5NdarrayWriter for T {}
+
+
 impl DatasetAttributes {
     pub fn coord_iter(&self) -> impl Iterator<Item = Vec<i64>> + ExactSizeIterator {
         let coord_ceil = self.get_dimensions().iter()
@@ -134,6 +267,47 @@ impl DatasetAttributes {
             .collect::<GridCoord>();
 
         CoordIterator::new(&coord_ceil)
+    }
+
+    pub fn bounded_coord_iter(&self, bbox: &BoundingBox) -> impl Iterator<Item = Vec<i64>> + ExactSizeIterator {
+        let floor_coord: GridCoord = bbox.offset.iter()
+            .zip(&self.block_size)
+            .map(|(&o, &bs)| o / i64::from(bs))
+            .collect();
+        let ceil_coord: GridCoord = bbox.offset.iter()
+            .zip(&bbox.size)
+            .zip(self.block_size.iter().cloned().map(i64::from))
+            .map(|((&o, &s), bs)| (o + s + bs - 1) / bs)
+            .collect();
+
+        CoordIterator::floor_ceil(&floor_coord, &ceil_coord)
+    }
+
+    pub fn get_bounds(&self) -> BoundingBox {
+        BoundingBox {
+            offset: smallvec![0; self.dimensions.len()],
+            size: self.dimensions.clone(),
+        }
+    }
+
+    pub fn get_block_bounds(&self, coord: &GridCoord) -> BoundingBox {
+        let mut size: GridCoord = self.get_block_size().iter().cloned().map(i64::from).collect();
+        let offset: GridCoord = coord.iter()
+            .zip(size.iter())
+            .map(|(c, s)| c * s).collect();
+        size.iter_mut()
+            .zip(offset.iter())
+            .zip(self.get_dimensions().iter())
+            .for_each(|((s, o), d)| *s = cmp::min(*s + *o, *d) - *o);
+        BoundingBox { offset, size }
+    }
+}
+
+impl<T: ReflectedType> VecDataBlock<T> {
+    pub fn get_bounds(&self, data_attrs: &DatasetAttributes) -> BoundingBox {
+        let mut bbox = data_attrs.get_block_bounds(&self.grid_position);
+        bbox.size = self.size.iter().cloned().map(i64::from).collect();
+        bbox
     }
 }
 
@@ -153,6 +327,21 @@ impl CoordIterator<itertools::MultiProduct<std::ops::Range<i64>>> {
                 .multi_cartesian_product(),
             accumulator: 0,
             total_coords: ceil.iter().product::<i64>() as usize,
+        }
+    }
+
+    fn floor_ceil(floor: &[i64], ceil: &[i64]) -> Self {
+        let total_coords = floor.iter()
+                .zip(ceil.iter())
+                .map(|(&f, &c)| c - f)
+                .product::<i64>() as usize;
+        CoordIterator {
+            iter: floor.iter()
+                .zip(ceil.iter())
+                .map(|(&f, &c)| f..c)
+                .multi_cartesian_product(),
+            accumulator: 0,
+            total_coords,
         }
     }
 }
