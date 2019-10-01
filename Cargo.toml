@@ -32,7 +32,7 @@ flate2 = { version = "1.0.3", features = ["rust_backend"], default-features = fa
 fs2 = { version = "0.4", optional = true }
 itertools = { version = "0.8", optional = true }
 lz4 = { version = "1.23", optional = true }
-ndarray = { version = "0.12", optional = true }
+ndarray = { version = "0.13", optional = true }
 num-traits = { version = "0.2", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 smallvec = { version = "0.6", features = ["serde", "std"] }
