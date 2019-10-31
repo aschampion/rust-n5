@@ -7,7 +7,6 @@
 //! extern crate n5;
 //!
 //! use n5::prelude::*;
-//! # fn main() { }
 //! ```
 
 #[doc(no_inline)]
