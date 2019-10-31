@@ -62,6 +62,15 @@ impl BoundingBox {
         self.size.iter().map(|n| *n as usize).collect()
     }
 
+    /// ```
+    /// # use n5::ndarray::BoundingBox;
+    /// # use n5::smallvec::smallvec;
+    /// let mut a = BoundingBox::new(smallvec![0, 0], smallvec![5, 8]);
+    /// let b = BoundingBox::new(smallvec![3, 3], smallvec![5, 3]);
+    /// let c = BoundingBox::new(smallvec![3, 3], smallvec![2, 3]);
+    /// a.intersect(&b);
+    /// assert_eq!(a, c);
+    /// ```
     pub fn intersect(&mut self, other: &BoundingBox) {
         assert_eq!(self.offset.len(), other.offset.len());
 
@@ -76,6 +85,15 @@ impl BoundingBox {
             });
     }
 
+    /// ```
+    /// # use n5::ndarray::BoundingBox;
+    /// # use n5::smallvec::smallvec;
+    /// let mut a = BoundingBox::new(smallvec![0, 0], smallvec![5, 8]);
+    /// let b = BoundingBox::new(smallvec![3, 3], smallvec![5, 3]);
+    /// let c = BoundingBox::new(smallvec![0, 0], smallvec![8, 8]);
+    /// a.union(&b);
+    /// assert_eq!(a, c);
+    /// ```
     pub fn union(&mut self, other: &BoundingBox) {
         assert_eq!(self.offset.len(), other.offset.len());
 

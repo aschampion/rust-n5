@@ -52,4 +52,9 @@ mod tests {
     fn test_rw() {
         crate::tests::test_block_compression_rw(CompressionType::Raw(RawCompression));
     }
+
+    #[test]
+    fn test_varlength_rw() {
+        crate::tests::test_varlength_block_rw(CompressionType::Raw(RawCompression));
+    }
 }

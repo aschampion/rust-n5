@@ -569,4 +569,34 @@ pub(crate) mod tests {
         assert_eq!(block_out.get_grid_position(), &[0, 0, 0]);
         assert_eq!(block_out.get_data(), &block_data);
     }
+
+    pub(crate) fn test_varlength_block_rw(compression: compression::CompressionType) {
+        let data_attrs = DatasetAttributes {
+            dimensions: smallvec![10, 10, 10],
+            block_size: smallvec![5, 5, 5],
+            data_type: DataType::INT32,
+            compression,
+        };
+        let block_data: Vec<i32> = (0..100_i32).collect();
+        let block_in = VecDataBlock::new(
+            data_attrs.block_size.clone(),
+            smallvec![0, 0, 0],
+            block_data.clone());
+
+        let mut inner: Vec<u8> = Vec::new();
+
+        <DefaultBlock as DefaultBlockWriter<i32, _, _>>::write_block(
+            &mut inner,
+            &data_attrs,
+            &block_in).expect("write_block failed");
+
+        let block_out = <DefaultBlock as DefaultBlockReader<i32, _>>::read_block(
+            &inner[..],
+            &data_attrs,
+            smallvec![0, 0, 0]).expect("read_block failed");
+
+        assert_eq!(block_out.get_size(), &[5, 5, 5]);
+        assert_eq!(block_out.get_grid_position(), &[0, 0, 0]);
+        assert_eq!(block_out.get_data(), &block_data);
+    }
 }
