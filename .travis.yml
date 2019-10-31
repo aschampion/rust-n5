@@ -31,6 +31,6 @@ script:
   - cargo test --examples --verbose
 after_success: |
   if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
-    cargo tarpaulin --out Xml --no-default-features --features=filesystem,use_ndarray,gzip
+    cargo tarpaulin --out Xml --no-default-features --features=filesystem,use_ndarray,gzip --run-types Doctests Tests
     bash <(curl -s https://codecov.io/bash)
   fi
