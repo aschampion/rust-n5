@@ -10,6 +10,7 @@ use std::ops::{
 use itertools::Itertools;
 use ndarray::{
     Array,
+    ArrayView,
     IxDyn,
     ShapeBuilder,
     SliceInfo,
@@ -155,12 +156,25 @@ pub trait N5NdarrayReader : N5Reader {
         }
 
         let mut arr = Array::zeros(bbox.size_ndarray_shape().f());
+        let mut block_buff_opt: Option<VecDataBlock<T>> = None;
 
         for coord in data_attrs.bounded_coord_iter(bbox) {
 
-            let block_opt = self.read_block(path_name, data_attrs, GridCoord::from(&coord[..]))?;
+            let grid_pos = GridCoord::from(&coord[..]);
+            let is_block = match block_buff_opt {
+                None => {
+                    block_buff_opt = self.read_block(path_name, data_attrs, grid_pos)?;
+                    block_buff_opt.is_some()
+                },
+                Some(ref mut block_buff) => {
+                    self.read_block_into(path_name, data_attrs, grid_pos, block_buff)?.is_some()
+                }
+            };
 
-            if let Some(block) = block_opt {
+            // TODO: cannot combine this into condition below until `let_chains` stabilizes.
+            if !is_block { continue; }
+
+            if let Some(ref block) = block_buff_opt {
 
                 let block_bb = block.get_bounds(data_attrs);
                 let mut read_bb = bbox.clone();
@@ -174,7 +188,7 @@ pub trait N5NdarrayReader : N5Reader {
                 let block_slice = block_read_bb.to_ndarray_slice();
 
                 // N5 datasets are stored f-order/column-major.
-                let block_data = Array::from_shape_vec(block_bb.size_ndarray_shape().f(), block.into())
+                let block_data = ArrayView::from_shape(block_bb.size_ndarray_shape().f(), block.get_data())
                     .expect("TODO: block ndarray failed");
                 let block_view = block_data.slice(SliceInfo::<_, IxDyn>::new(block_slice).unwrap().as_ref());
 
