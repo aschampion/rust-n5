@@ -24,7 +24,7 @@ use n5::smallvec::smallvec;
 fn n5_roundtrip(root_path: &str) -> std::io::Result<()> {
     let n = N5Filesystem::open_or_create(root_path)?;
 
-    let block_size = smallvec![44i32, 33, 22];
+    let block_size = smallvec![44, 33, 22];
     let data_attrs = DatasetAttributes::new(
         smallvec![100, 200, 300],
         block_size.clone(),
