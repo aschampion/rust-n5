@@ -55,7 +55,7 @@ impl BoundingBox {
     }
 
     pub fn size_block(&self) -> BlockCoord {
-        self.size.iter().map(|n| *n as i32).collect()
+        self.size.iter().map(|n| *n as u32).collect()
     }
 
     pub fn size_ndarray_shape(&self) -> CoordVec<usize> {
@@ -108,7 +108,7 @@ impl BoundingBox {
             });
     }
 
-    pub fn end(&self) -> impl Iterator<Item=i64> + '_ {
+    pub fn end(&self) -> impl Iterator<Item=u64> + '_ {
         self.offset.iter().zip(self.size.iter()).map(|(o, s)| o + s)
     }
 
@@ -208,7 +208,7 @@ pub trait N5NdarrayWriter : N5Writer {
         }
         let bbox = BoundingBox {
             offset,
-            size: array.shape().iter().map(|n| *n as i64).collect(),
+            size: array.shape().iter().map(|n| *n as u64).collect(),
         };
 
         for coord in data_attrs.bounded_coord_iter(&bbox) {
@@ -278,23 +278,23 @@ impl<T: N5Writer> N5NdarrayWriter for T {}
 
 
 impl DatasetAttributes {
-    pub fn coord_iter(&self) -> impl Iterator<Item = Vec<i64>> + ExactSizeIterator {
+    pub fn coord_iter(&self) -> impl Iterator<Item = Vec<u64>> + ExactSizeIterator {
         let coord_ceil = self.get_dimensions().iter()
             .zip(self.get_block_size().iter())
-            .map(|(&d, &s)| (d + i64::from(s) - 1) / i64::from(s))
+            .map(|(&d, &s)| (d + u64::from(s) - 1) / u64::from(s))
             .collect::<GridCoord>();
 
         CoordIterator::new(&coord_ceil)
     }
 
-    pub fn bounded_coord_iter(&self, bbox: &BoundingBox) -> impl Iterator<Item = Vec<i64>> + ExactSizeIterator {
+    pub fn bounded_coord_iter(&self, bbox: &BoundingBox) -> impl Iterator<Item = Vec<u64>> + ExactSizeIterator {
         let floor_coord: GridCoord = bbox.offset.iter()
             .zip(&self.block_size)
-            .map(|(&o, &bs)| o / i64::from(bs))
+            .map(|(&o, &bs)| o / u64::from(bs))
             .collect();
         let ceil_coord: GridCoord = bbox.offset.iter()
             .zip(&bbox.size)
-            .zip(self.block_size.iter().cloned().map(i64::from))
+            .zip(self.block_size.iter().cloned().map(u64::from))
             .map(|((&o, &s), bs)| (o + s + bs - 1) / bs)
             .collect();
 
@@ -309,7 +309,7 @@ impl DatasetAttributes {
     }
 
     pub fn get_block_bounds(&self, coord: &GridCoord) -> BoundingBox {
-        let mut size: GridCoord = self.get_block_size().iter().cloned().map(i64::from).collect();
+        let mut size: GridCoord = self.get_block_size().iter().cloned().map(u64::from).collect();
         let offset: GridCoord = coord.iter()
             .zip(size.iter())
             .map(|(c, s)| c * s).collect();
@@ -324,35 +324,35 @@ impl DatasetAttributes {
 impl<T: ReflectedType> VecDataBlock<T> {
     pub fn get_bounds(&self, data_attrs: &DatasetAttributes) -> BoundingBox {
         let mut bbox = data_attrs.get_block_bounds(&self.grid_position);
-        bbox.size = self.size.iter().cloned().map(i64::from).collect();
+        bbox.size = self.size.iter().cloned().map(u64::from).collect();
         bbox
     }
 }
 
 /// Iterator wrapper to provide exact size when iterating over coordinate
 /// ranges.
-struct CoordIterator<T: Iterator<Item = Vec<i64>>> {
+struct CoordIterator<T: Iterator<Item = Vec<u64>>> {
     iter: T,
     accumulator: usize,
     total_coords: usize,
 }
 
-impl CoordIterator<itertools::MultiProduct<std::ops::Range<i64>>> {
-    fn new(ceil: &[i64]) -> Self {
+impl CoordIterator<itertools::MultiProduct<std::ops::Range<u64>>> {
+    fn new(ceil: &[u64]) -> Self {
         CoordIterator {
             iter: ceil.iter()
                 .map(|&c| 0..c)
                 .multi_cartesian_product(),
             accumulator: 0,
-            total_coords: ceil.iter().product::<i64>() as usize,
+            total_coords: ceil.iter().product::<u64>() as usize,
         }
     }
 
-    fn floor_ceil(floor: &[i64], ceil: &[i64]) -> Self {
+    fn floor_ceil(floor: &[u64], ceil: &[u64]) -> Self {
         let total_coords = floor.iter()
                 .zip(ceil.iter())
                 .map(|(&f, &c)| c - f)
-                .product::<i64>() as usize;
+                .product::<u64>() as usize;
         CoordIterator {
             iter: floor.iter()
                 .zip(ceil.iter())
@@ -364,8 +364,8 @@ impl CoordIterator<itertools::MultiProduct<std::ops::Range<i64>>> {
     }
 }
 
-impl<T: Iterator<Item = Vec<i64>>> Iterator for CoordIterator<T> {
-    type Item = Vec<i64>;
+impl<T: Iterator<Item = Vec<u64>>> Iterator for CoordIterator<T> {
+    type Item = Vec<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.accumulator += 1;
@@ -378,7 +378,7 @@ impl<T: Iterator<Item = Vec<i64>>> Iterator for CoordIterator<T> {
     }
 }
 
-impl<T: Iterator<Item = Vec<i64>>> ExactSizeIterator for CoordIterator<T> {
+impl<T: Iterator<Item = Vec<u64>>> ExactSizeIterator for CoordIterator<T> {
 }
 
 
@@ -398,8 +398,8 @@ pub(crate) mod tests {
             compression: crate::compression::CompressionType::default(),
         };
 
-        let coords: HashSet<Vec<i64>> = data_attrs.coord_iter().collect();
-        let expected: HashSet<Vec<i64>> = vec![
+        let coords: HashSet<Vec<u64>> = data_attrs.coord_iter().collect();
+        let expected: HashSet<Vec<u64>> = vec![
             vec![0, 0, 0],
             vec![0, 0, 1],
             vec![0, 1, 0],

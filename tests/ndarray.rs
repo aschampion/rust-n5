@@ -18,7 +18,7 @@ fn test_read_ndarray() {
     let n = N5Filesystem::open_or_create(path_str)
         .expect("Failed to create N5 filesystem");
 
-    let block_size = smallvec![3i32, 4, 2, 1];
+    let block_size = smallvec![3, 4, 2, 1];
     let data_attrs = DatasetAttributes::new(
         smallvec![3, 300, 200, 100],
         block_size.clone(),
@@ -44,16 +44,16 @@ fn test_read_ndarray() {
                 for zo in 0..block_size[3] {
                     for yo in 0..block_size[2] {
                         for xo in 0..block_size[1] {
-                            block_data.push(1000 + x + xo);
-                            block_data.push(2000 + y + yo);
-                            block_data.push(3000 + z + zo);
+                            block_data.push(1000 + x as i32 + xo as i32);
+                            block_data.push(2000 + y as i32 + yo as i32);
+                            block_data.push(3000 + z as i32 + zo as i32);
                         }
                     }
                 }
 
                 let block_in = VecDataBlock::new(
                     block_size.clone(),
-                    smallvec![0, i64::from(i), i64::from(j), i64::from(k)],
+                    smallvec![0, u64::from(i), u64::from(j), u64::from(k)],
                     block_data);
                 n.write_block(path_name, &data_attrs, &block_in)
                     .expect("Failed to write block");
@@ -87,7 +87,7 @@ fn test_write_read_ndarray() {
     let n = N5Filesystem::open_or_create(path_str)
         .expect("Failed to create N5 filesystem");
 
-    let block_size = smallvec![3i32, 4, 2, 1];
+    let block_size = smallvec![3, 4, 2, 1];
     let data_attrs = DatasetAttributes::new(
         smallvec![3, 300, 200, 100],
         block_size.clone(),
@@ -110,7 +110,7 @@ fn test_write_read_ndarray() {
 
     n.write_ndarray(path_name, &data_attrs, offset.clone(), &array, 0).unwrap();
 
-    let bbox = BoundingBox::new(offset, arr_shape.iter().map(|s| *s as i64).collect());
+    let bbox = BoundingBox::new(offset, arr_shape.iter().map(|s| *s as u64).collect());
     let a = n.read_ndarray::<i32>("test/dataset/group", &data_attrs, &bbox).unwrap();
 
     assert_eq!(array, a);

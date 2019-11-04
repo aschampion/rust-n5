@@ -12,9 +12,9 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
         rand::distributions::Standard: rand::distributions::Distribution<T>,
         VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock,
 {
-    let block_size: BlockCoord = (1..=dim as i32).rev().map(|d| d*5).collect();
+    let block_size: BlockCoord = (1..=dim as u32).rev().map(|d| d*5).collect();
     let data_attrs = DatasetAttributes::new(
-        (1..=dim as i64).map(|d| d*100).collect(),
+        (1..=dim as u64).map(|d| d*100).collect(),
         block_size.clone(),
         T::VARIANT,
         compression.clone(),

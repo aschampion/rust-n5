@@ -63,8 +63,8 @@ lazy_static! {
         pixels
     };
 }
-const BLOCK_DIM: i32 = 64;
-const N_BLOCKS: i64 = 5;
+const BLOCK_DIM: u32 = 64;
+const N_BLOCKS: u64 = 5;
 
 fn write<T, N5>(
         n: &N5,
@@ -77,7 +77,7 @@ fn write<T, N5>(
 
     let block_size = smallvec![BLOCK_DIM; 3];
     let data_attrs = DatasetAttributes::new(
-        smallvec![i64::from(BLOCK_DIM) * N_BLOCKS; 3],
+        smallvec![u64::from(BLOCK_DIM) * N_BLOCKS; 3],
         block_size.clone(),
         T::VARIANT,
         compression.clone(),

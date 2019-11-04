@@ -48,13 +48,13 @@ pub use crate::version::Version;
 
 const COORD_SMALLVEC_SIZE: usize = 6;
 pub type CoordVec<T> = SmallVec<[T; COORD_SMALLVEC_SIZE]>;
-pub type BlockCoord = CoordVec<i32>;
-pub type GridCoord = CoordVec<i64>;
+pub type BlockCoord = CoordVec<u32>;
+pub type GridCoord = CoordVec<u64>;
 
 
 lazy_static! {
     pub static ref VERSION: Version = {
-        Version::new(2, 0, 2, "")
+        Version::new(2, 1, 3, "")
     };
 }
 
@@ -89,7 +89,7 @@ pub trait N5Reader {
     /// Whether this requires that the dataset and block exist is currently
     /// implementation dependent. Whether this URI is a URL is implementation
     /// dependent.
-    fn get_block_uri(&self, path_name: &str, grid_position: &[i64]) -> Result<String, Error>;
+    fn get_block_uri(&self, path_name: &str, grid_position: &[u64]) -> Result<String, Error>;
 
     /// Read a single dataset block into a linear vec.
     fn read_block<T>(
@@ -115,7 +115,7 @@ pub trait N5Reader {
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
-        grid_position: &[i64],
+        grid_position: &[u64],
     ) -> Result<Option<DataBlockMetadata>, Error>;
 
     /// List all groups (including datasets) in a group.
@@ -226,11 +226,11 @@ impl DatasetAttributes {
         }
     }
 
-    pub fn get_dimensions(&self) -> &[i64] {
+    pub fn get_dimensions(&self) -> &[u64] {
         &self.dimensions
     }
 
-    pub fn get_block_size(&self) -> &[i32] {
+    pub fn get_block_size(&self) -> &[u32] {
         &self.block_size
     }
 
@@ -282,13 +282,13 @@ pub trait WriteableDataBlock {
 ///
 /// To enable custom types to be written to N5 volumes, implement this trait.
 pub trait DataBlock<T> : Into<Vec<T>> + ReinitDataBlock + ReadableDataBlock + WriteableDataBlock {
-    fn get_size(&self) -> &[i32];
+    fn get_size(&self) -> &[u32];
 
-    fn get_grid_position(&self) -> &[i64];
+    fn get_grid_position(&self) -> &[u64];
 
     fn get_data(&self) -> &Vec<T>;
 
-    fn get_num_elements(&self) -> i32; // TODO: signed sizes feel awful.
+    fn get_num_elements(&self) -> u32; // TODO: signed sizes feel awful.
 }
 
 /// A linear vector storing a data block. All read data blocks are returned as
@@ -391,11 +391,11 @@ impl<T: Clone> Into<Vec<T>> for VecDataBlock<T> {
 
 impl<T: Clone> DataBlock<T> for VecDataBlock<T>
         where VecDataBlock<T>: ReinitDataBlock + ReadableDataBlock + WriteableDataBlock {
-    fn get_size(&self) -> &[i32] {
+    fn get_size(&self) -> &[u32] {
         &self.size
     }
 
-    fn get_grid_position(&self) -> &[i64] {
+    fn get_grid_position(&self) -> &[u64] {
         &self.grid_position
     }
 
@@ -403,8 +403,8 @@ impl<T: Clone> DataBlock<T> for VecDataBlock<T>
         &self.data
     }
 
-    fn get_num_elements(&self) -> i32 {
-        self.data.len() as i32
+    fn get_num_elements(&self) -> u32 {
+        self.data.len() as u32
     }
 }
 
@@ -415,13 +415,13 @@ pub trait DefaultBlockHeaderReader<R: std::io::Read> {
         grid_position: GridCoord,
     ) -> std::io::Result<BlockHeader> {
 
-        let mode = buffer.read_i16::<BigEndian>()?;
-        let ndim = buffer.read_i16::<BigEndian>()?;
+        let mode = buffer.read_u16::<BigEndian>()?;
+        let ndim = buffer.read_u16::<BigEndian>()?;
         let mut size = smallvec![0; ndim as usize];
-        buffer.read_i32_into::<BigEndian>(&mut size)?;
+        buffer.read_u32_into::<BigEndian>(&mut size)?;
         let num_el = match mode {
             0 => size.iter().product(),
-            1 => buffer.read_i32::<BigEndian>()?,
+            1 => buffer.read_u32::<BigEndian>()?,
             _ => return Err(Error::new(ErrorKind::InvalidData, "Unsupported block mode"))
         };
 
@@ -485,16 +485,16 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
         data_attrs: &DatasetAttributes,
         block: &B,
     ) -> std::io::Result<()> {
-        let mode: i16 = if block.get_num_elements() == block.get_size().iter().product::<i32>()
+        let mode: u16 = if block.get_num_elements() == block.get_size().iter().product::<u32>()
             {0} else {1};
-        buffer.write_i16::<BigEndian>(mode)?;
-        buffer.write_i16::<BigEndian>(data_attrs.get_ndim() as i16)?;
+        buffer.write_u16::<BigEndian>(mode)?;
+        buffer.write_u16::<BigEndian>(data_attrs.get_ndim() as u16)?;
         for i in block.get_size() {
-            buffer.write_i32::<BigEndian>(*i)?;
+            buffer.write_u32::<BigEndian>(*i)?;
         }
 
         if mode != 0 {
-            buffer.write_i32::<BigEndian>(block.get_num_elements())?;
+            buffer.write_u32::<BigEndian>(block.get_num_elements())?;
         }
 
         let mut compressor = data_attrs.compression.encoder(buffer);

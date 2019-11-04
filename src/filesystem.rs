@@ -139,7 +139,7 @@ impl N5Filesystem {
         Err(Error::new(ErrorKind::NotFound, "Path name is outside this N5 filesystem"))
     }
 
-    fn get_data_block_path(&self, path_name: &str, grid_position: &[i64]) -> Result<PathBuf> {
+    fn get_data_block_path(&self, path_name: &str, grid_position: &[u64]) -> Result<PathBuf> {
         let mut path = self.get_path(path_name)?;
         for coord in grid_position {
             path.push(coord.to_string());
@@ -176,7 +176,7 @@ impl N5Reader for N5Filesystem {
         target.is_dir()
     }
 
-    fn get_block_uri(&self, path_name: &str, grid_position: &[i64]) -> Result<String> {
+    fn get_block_uri(&self, path_name: &str, grid_position: &[u64]) -> Result<String> {
         self.get_data_block_path(path_name, grid_position)?.to_str()
             // TODO: could use URL crate and `from_file_path` here.
             .map(|s| format!("file://{}", s))
@@ -232,7 +232,7 @@ impl N5Reader for N5Filesystem {
         &self,
         path_name: &str,
         _data_attrs: &DatasetAttributes,
-        grid_position: &[i64],
+        grid_position: &[u64],
     ) -> Result<Option<DataBlockMetadata>> {
         let block_file = self.get_data_block_path(path_name, grid_position)?;
         if block_file.is_file() {
