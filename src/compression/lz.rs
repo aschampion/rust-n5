@@ -1,6 +1,7 @@
 use std::io::{Read, Result, Write};
 
 use lz4::{
+    BlockMode,
     BlockSize,
     Decoder,
     Encoder,
@@ -80,7 +81,10 @@ impl Compression for Lz4Compression {
     }
 
     fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<dyn Write + 'a> {
-        let encoder = EncoderBuilder::new().block_size(self.get_effective_block_size()).build(w)
+        let encoder = EncoderBuilder::new()
+            .block_size(self.get_effective_block_size())
+            .block_mode(BlockMode::Independent)
+            .build(w)
             .expect("TODO");
         Box::new(Wrapper {s: Some(encoder)})
     }
@@ -115,10 +119,6 @@ mod tests {
     }
 
     #[test]
-    // This test is ignored since the compressed stream differs from Java.
-    // The difference is due to using linked LZ4 blocks while Java uses
-    // independent blocks.
-    #[ignore]
     fn test_write_doc_spec_block() {
         crate::tests::test_write_doc_spec_block(
             TEST_BLOCK_I16_LZ4.as_ref(),
