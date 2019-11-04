@@ -85,13 +85,14 @@ mod tests {
     }
 
     #[test]
-    // This test is ignored since the compressed stream differs from Java.
-    // The difference is one byte: the operating system ID. Java uses 0 (FAT)
-    // while flate2 usese 255 (unknown).
-    #[ignore]
     fn test_write_doc_spec_block() {
+        // The compressed stream differs from Java.
+        // The difference is one byte: the operating system ID.
+        // Java uses 0 (FAT) while flate2 usese 255 (unknown).
+        let mut fudge_test_block = TEST_BLOCK_I16_GZIP.clone();
+        fudge_test_block[25] = 255;
         crate::tests::test_write_doc_spec_block(
-            TEST_BLOCK_I16_GZIP.as_ref(),
+            &fudge_test_block,
             CompressionType::Gzip(GzipCompression::default()));
     }
 
