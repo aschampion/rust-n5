@@ -115,6 +115,17 @@ mod tests {
     }
 
     #[test]
+    // This test is ignored since the compressed stream differs from Java.
+    // The difference is due to using linked LZ4 blocks while Java uses
+    // independent blocks.
+    #[ignore]
+    fn test_write_doc_spec_block() {
+        crate::tests::test_write_doc_spec_block(
+            TEST_BLOCK_I16_LZ4.as_ref(),
+            CompressionType::Lz4(Lz4Compression::default()));
+    }
+
+    #[test]
     fn test_rw() {
         crate::tests::test_block_compression_rw(CompressionType::Lz4(Lz4Compression::default()));
     }

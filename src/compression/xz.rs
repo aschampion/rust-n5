@@ -79,6 +79,13 @@ mod tests {
     }
 
     #[test]
+    fn test_write_doc_spec_block() {
+        crate::tests::test_write_doc_spec_block(
+            TEST_BLOCK_I16_XZ.as_ref(),
+            CompressionType::Xz(XzCompression::default()));
+    }
+
+    #[test]
     fn test_rw() {
         crate::tests::test_block_compression_rw(CompressionType::Xz(XzCompression::default()));
     }

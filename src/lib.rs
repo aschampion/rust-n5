@@ -518,26 +518,51 @@ pub(crate) mod tests {
     use super::*;
     use std::io::Cursor;
 
+    const DOC_SPEC_BLOCK_DATA: [i16; 6] = [1, 2, 3, 4, 5, 6];
+
+    fn doc_spec_dataset_attributes(compression: compression::CompressionType) -> DatasetAttributes {
+        DatasetAttributes {
+            dimensions: smallvec![5, 6, 7],
+            block_size: smallvec![1, 2, 3],
+            data_type: DataType::INT16,
+            compression,
+        }
+    }
+
     pub(crate) fn test_read_doc_spec_block(
             block: &[u8],
             compression: compression::CompressionType,
     ) {
         let buff = Cursor::new(block);
-        let data_attrs = DatasetAttributes {
-            dimensions: smallvec![5, 6, 7],
-            block_size: smallvec![1, 2, 3],
-            data_type: DataType::INT16,
-            compression,
-        };
+        let data_attrs = doc_spec_dataset_attributes(compression);
 
         let block = <DefaultBlock as DefaultBlockReader<i16, std::io::Cursor<&[u8]>>>::read_block(
             buff,
             &data_attrs,
             smallvec![0, 0, 0]).expect("read_block failed");
 
-        assert_eq!(block.get_size(), &[1, 2, 3]);
+        assert_eq!(block.get_size(), data_attrs.get_block_size());
         assert_eq!(block.get_grid_position(), &[0, 0, 0]);
-        assert_eq!(block.get_data(), &vec![1, 2, 3, 4, 5, 6]);
+        assert_eq!(block.get_data(), &DOC_SPEC_BLOCK_DATA);
+    }
+
+    pub(crate) fn test_write_doc_spec_block(
+            expected_block: &[u8],
+            compression: compression::CompressionType,
+    ) {
+        let data_attrs = doc_spec_dataset_attributes(compression);
+        let block_in = VecDataBlock::new(
+            data_attrs.block_size.clone(),
+            smallvec![0, 0, 0],
+            DOC_SPEC_BLOCK_DATA.to_vec());
+        let mut buff: Vec<u8> = Vec::new();
+
+        <DefaultBlock as DefaultBlockWriter<i16, _, _>>::write_block(
+            &mut buff,
+            &data_attrs,
+            &block_in).expect("read_block failed");
+
+        assert_eq!(buff, expected_block);
     }
 
     pub(crate) fn test_block_compression_rw(compression: compression::CompressionType) {

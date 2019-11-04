@@ -86,6 +86,15 @@ mod tests {
     }
 
     #[test]
+    // This test is ignored since the compressed stream differs from Java.
+    #[ignore]
+    fn test_write_doc_spec_block() {
+        crate::tests::test_write_doc_spec_block(
+            TEST_BLOCK_I16_BZIP2.as_ref(),
+            CompressionType::Bzip2(Bzip2Compression::default()));
+    }
+
+    #[test]
     fn test_rw() {
         crate::tests::test_block_compression_rw(CompressionType::Bzip2(Bzip2Compression::default()));
     }

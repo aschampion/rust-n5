@@ -49,6 +49,13 @@ mod tests {
     }
 
     #[test]
+    fn test_write_doc_spec_block() {
+        crate::tests::test_write_doc_spec_block(
+            TEST_BLOCK_I16_RAW.as_ref(),
+            CompressionType::Raw(RawCompression));
+    }
+
+    #[test]
     fn test_rw() {
         crate::tests::test_block_compression_rw(CompressionType::Raw(RawCompression));
     }
