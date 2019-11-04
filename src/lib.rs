@@ -291,7 +291,7 @@ pub trait DataBlock<T> : Into<Vec<T>> + ReinitDataBlock + ReadableDataBlock + Wr
 
     fn get_data(&self) -> &Vec<T>;
 
-    fn get_num_elements(&self) -> u32; // TODO: signed sizes feel awful.
+    fn get_num_elements(&self) -> u32;
 }
 
 /// A linear vector storing a data block. All read data blocks are returned as
