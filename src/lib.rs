@@ -18,6 +18,7 @@ use std::io::{
     Error,
     ErrorKind,
 };
+use std::marker::PhantomData;
 use std::time::SystemTime;
 
 use byteorder::{
@@ -101,11 +102,11 @@ pub trait N5Reader {
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
     ) -> Result<Option<VecDataBlock<T>>, Error>
-        where VecDataBlock<T>: DataBlock<T>,
+        where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock,
               T: ReflectedType;
 
     /// Read a single dataset block into an existing buffer.
-    fn read_block_into<T: ReflectedType, B: DataBlock<T>>(
+    fn read_block_into<T: ReflectedType, B: DataBlock<T> + ReinitDataBlock + ReadableDataBlock>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
@@ -189,7 +190,7 @@ pub trait N5Writer : N5Reader {
         path_name: &str,
     ) -> Result<(), Error>;
 
-    fn write_block<T, B: DataBlock<T>>(
+    fn write_block<T, B: DataBlock<T> + WriteableDataBlock>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
@@ -284,32 +285,42 @@ pub trait WriteableDataBlock {
 /// Common interface for data blocks of element (rust) type `T`.
 ///
 /// To enable custom types to be written to N5 volumes, implement this trait.
-pub trait DataBlock<T> : Into<Vec<T>> + ReinitDataBlock + ReadableDataBlock + WriteableDataBlock {
+pub trait DataBlock<T> {
     fn get_size(&self) -> &[u32];
 
     fn get_grid_position(&self) -> &[u64];
 
-    fn get_data(&self) -> &Vec<T>;
+    fn get_data(&self) -> &[T];
 
     fn get_num_elements(&self) -> u32;
 }
 
-/// A linear vector storing a data block. All read data blocks are returned as
-/// this type.
+/// A generic data block container wrapping any type that can be taken as a
+/// slice ref.
 #[derive(Clone)]
-pub struct VecDataBlock<T: Clone> {
+pub struct SliceDataBlock<T: Clone, C> {
+    data_type: PhantomData<T>,
     size: BlockCoord,
     grid_position: GridCoord,
-    data: Vec<T>,
+    data: C,
 }
 
-impl<T: Clone> VecDataBlock<T> {
-    pub fn new(size: BlockCoord, grid_position: GridCoord, data: Vec<T>) -> VecDataBlock<T> {
-        VecDataBlock {
+/// A linear vector storing a data block. All read data blocks are returned as
+/// this type.
+pub type VecDataBlock<T> = SliceDataBlock<T, Vec<T>>;
+
+impl<T: Clone, C> SliceDataBlock<T, C> {
+    pub fn new(size: BlockCoord, grid_position: GridCoord, data: C) -> SliceDataBlock<T, C> {
+        SliceDataBlock {
+            data_type: PhantomData,
             size,
             grid_position,
             data,
         }
+    }
+
+    pub fn into_data(self) -> C {
+        self.data
     }
 }
 
@@ -323,19 +334,19 @@ impl<T: Clone + Default> ReinitDataBlock for VecDataBlock<T> {
 
 macro_rules! vec_data_block_impl {
     ($ty_name:ty, $bo_read_fn:ident, $bo_write_fn:ident) => {
-        impl ReadableDataBlock for VecDataBlock<$ty_name> {
+        impl<C: AsMut<[$ty_name]>> ReadableDataBlock for SliceDataBlock<$ty_name, C> {
             fn read_data<R: std::io::Read>(&mut self, mut source: R) -> std::io::Result<()> {
-                source.$bo_read_fn::<BigEndian>(&mut self.data)
+                source.$bo_read_fn::<BigEndian>(self.data.as_mut())
             }
         }
 
-        impl WriteableDataBlock for VecDataBlock<$ty_name> {
+        impl<C: AsRef<[$ty_name]>> WriteableDataBlock for SliceDataBlock<$ty_name, C> {
             fn write_data<W: std::io::Write>(&self, mut target: W) -> std::io::Result<()> {
                 const CHUNK: usize = 256;
                 let mut buf: [u8; CHUNK * std::mem::size_of::<$ty_name>()] =
                     [0; CHUNK * std::mem::size_of::<$ty_name>()];
 
-                for c in self.data.chunks(CHUNK) {
+                for c in self.data.as_ref().chunks(CHUNK) {
                     let byte_len = c.len() * std::mem::size_of::<$ty_name>();
                     BigEndian::$bo_write_fn(c, &mut buf[..byte_len]);
                     target.write_all(&buf[..byte_len])?;
@@ -356,19 +367,19 @@ vec_data_block_impl!(i64, read_i64_into, write_i64_into);
 vec_data_block_impl!(f32, read_f32_into, write_f32_into);
 vec_data_block_impl!(f64, read_f64_into, write_f64_into);
 
-impl ReadableDataBlock for VecDataBlock<u8> {
+impl<C: AsMut<[u8]>> ReadableDataBlock for SliceDataBlock<u8, C> {
     fn read_data<R: std::io::Read>(&mut self, mut source: R) -> std::io::Result<()> {
-        source.read_exact(&mut self.data)
+        source.read_exact(self.data.as_mut())
     }
 }
 
-impl WriteableDataBlock for VecDataBlock<u8> {
+impl<C: AsRef<[u8]>> WriteableDataBlock for SliceDataBlock<u8, C> {
     fn write_data<W: std::io::Write>(&self, mut target: W) -> std::io::Result<()> {
-        target.write_all(&self.data)
+        target.write_all(self.data.as_ref())
     }
 }
 
-impl ReadableDataBlock for VecDataBlock<i8> {
+impl<C: AsMut<[i8]>> ReadableDataBlock for SliceDataBlock<i8, C> {
     fn read_data<R: std::io::Read>(&mut self, mut source: R) -> std::io::Result<()> {
         // Unsafe necessary here because we need a &mut [u8] to avoid doing
         // individual reads to the i8 data. This is safe.
@@ -377,7 +388,7 @@ impl ReadableDataBlock for VecDataBlock<i8> {
     }
 }
 
-impl WriteableDataBlock for VecDataBlock<i8> {
+impl<C: AsRef<[i8]>> WriteableDataBlock for SliceDataBlock<i8, C> {
     fn write_data<W: std::io::Write>(&self, mut target: W) -> std::io::Result<()> {
         // Unsafe necessary here because we need a &mut [u8] to avoid doing
         // individual writes from the i8 data. This is safe.
@@ -386,14 +397,7 @@ impl WriteableDataBlock for VecDataBlock<i8> {
     }
 }
 
-impl<T: Clone> Into<Vec<T>> for VecDataBlock<T> {
-    fn into(self) -> Vec<T> {
-        self.data
-    }
-}
-
-impl<T: Clone> DataBlock<T> for VecDataBlock<T>
-        where VecDataBlock<T>: ReinitDataBlock + ReadableDataBlock + WriteableDataBlock {
+impl<T: Clone, C: AsRef<[T]>> DataBlock<T> for SliceDataBlock<T, C> {
     fn get_size(&self) -> &[u32] {
         &self.size
     }
@@ -402,12 +406,12 @@ impl<T: Clone> DataBlock<T> for VecDataBlock<T>
         &self.grid_position
     }
 
-    fn get_data(&self) -> &Vec<T> {
-        &self.data
+    fn get_data(&self) -> &[T] {
+        self.data.as_ref()
     }
 
     fn get_num_elements(&self) -> u32 {
-        self.data.len() as u32
+        self.data.as_ref().len() as u32
     }
 }
 
@@ -443,7 +447,7 @@ pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHe
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
     ) -> std::io::Result<VecDataBlock<T>>
-            where VecDataBlock<T>: DataBlock<T> {
+            where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock {
 
         if data_attrs.data_type != T::VARIANT {
             return Err(Error::new(
@@ -459,7 +463,7 @@ pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHe
         Ok(block)
     }
 
-    fn read_block_into<B: DataBlock<T>>(
+    fn read_block_into<B: DataBlock<T> + ReinitDataBlock + ReadableDataBlock>(
         mut buffer: R,
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
@@ -482,7 +486,7 @@ pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHe
 }
 
 /// Writes blocks to rust writers.
-pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
+pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T> + WriteableDataBlock> {
     fn write_block(
         mut buffer: W,
         data_attrs: &DatasetAttributes,
@@ -513,7 +517,7 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T>> {
 pub struct DefaultBlock;
 impl<R: std::io::Read> DefaultBlockHeaderReader<R> for DefaultBlock {}
 impl<T: ReflectedType, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock {}
-impl<T, W: std::io::Write, B: DataBlock<T>> DefaultBlockWriter<T, W, B> for DefaultBlock {}
+impl<T, W: std::io::Write, B: DataBlock<T> + WriteableDataBlock> DefaultBlockWriter<T, W, B> for DefaultBlock {}
 
 
 #[cfg(test)]
@@ -554,10 +558,10 @@ pub(crate) mod tests {
             compression: compression::CompressionType,
     ) {
         let data_attrs = doc_spec_dataset_attributes(compression);
-        let block_in = VecDataBlock::new(
+        let block_in = SliceDataBlock::new(
             data_attrs.block_size.clone(),
             smallvec![0, 0, 0],
-            DOC_SPEC_BLOCK_DATA.to_vec());
+            DOC_SPEC_BLOCK_DATA);
         let mut buff: Vec<u8> = Vec::new();
 
         <DefaultBlock as DefaultBlockWriter<i16, _, _>>::write_block(
@@ -576,10 +580,10 @@ pub(crate) mod tests {
             compression,
         };
         let block_data: Vec<i32> = (0..125_i32).collect();
-        let block_in = VecDataBlock::new(
+        let block_in = SliceDataBlock::new(
             data_attrs.block_size.clone(),
             smallvec![0, 0, 0],
-            block_data.clone());
+            &block_data);
 
         let mut inner: Vec<u8> = Vec::new();
 
@@ -595,7 +599,7 @@ pub(crate) mod tests {
 
         assert_eq!(block_out.get_size(), &[5, 5, 5]);
         assert_eq!(block_out.get_grid_position(), &[0, 0, 0]);
-        assert_eq!(block_out.get_data(), &block_data);
+        assert_eq!(block_out.get_data(), &block_data[..]);
     }
 
     pub(crate) fn test_varlength_block_rw(compression: compression::CompressionType) {
@@ -606,10 +610,10 @@ pub(crate) mod tests {
             compression,
         };
         let block_data: Vec<i32> = (0..100_i32).collect();
-        let block_in = VecDataBlock::new(
+        let block_in = SliceDataBlock::new(
             data_attrs.block_size.clone(),
             smallvec![0, 0, 0],
-            block_data.clone());
+            &block_data);
 
         let mut inner: Vec<u8> = Vec::new();
 
@@ -625,6 +629,6 @@ pub(crate) mod tests {
 
         assert_eq!(block_out.get_size(), &[5, 5, 5]);
         assert_eq!(block_out.get_grid_position(), &[0, 0, 0]);
-        assert_eq!(block_out.get_data(), &block_data);
+        assert_eq!(block_out.get_data(), &block_data[..]);
     }
 }

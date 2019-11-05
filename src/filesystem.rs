@@ -36,9 +36,12 @@ use crate::{
     GridCoord,
     N5Reader,
     N5Writer,
+    ReadableDataBlock,
     ReflectedType,
+    ReinitDataBlock,
     VecDataBlock,
     Version,
+    WriteableDataBlock,
 };
 
 
@@ -189,7 +192,7 @@ impl N5Reader for N5Filesystem {
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
     ) -> Result<Option<VecDataBlock<T>>>
-            where VecDataBlock<T>: DataBlock<T>,
+            where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock,
                   T: ReflectedType {
         let block_file = self.get_data_block_path(path_name, &grid_position)?;
         if block_file.is_file() {
@@ -205,7 +208,7 @@ impl N5Reader for N5Filesystem {
         }
     }
 
-    fn read_block_into<T: ReflectedType, B: DataBlock<T>>(
+    fn read_block_into<T: ReflectedType, B: DataBlock<T> + ReinitDataBlock + ReadableDataBlock>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
@@ -346,7 +349,7 @@ impl N5Writer for N5Filesystem {
         Ok(())
     }
 
-    fn write_block<T, B: DataBlock<T>>(
+    fn write_block<T, B: DataBlock<T> + WriteableDataBlock>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
@@ -472,7 +475,7 @@ mod tests {
         let missing_block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 1])
             .expect("Failed to read block");
 
-        assert_eq!(block_out.get_data(), &block_data);
+        assert_eq!(block_out.get_data(), &block_data[..]);
         assert!(missing_block_out.is_none());
     }
 }

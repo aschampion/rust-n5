@@ -20,6 +20,7 @@ pub use crate::{
     N5Reader,
     N5Writer,
     ReflectedType,
+    SliceDataBlock,
     VecDataBlock,
 };
 #[doc(no_inline)]

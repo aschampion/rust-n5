@@ -24,8 +24,11 @@ use crate::{
     GridCoord,
     N5Reader,
     N5Writer,
+    ReadableDataBlock,
     ReflectedType,
+    ReinitDataBlock,
     VecDataBlock,
+    WriteableDataBlock,
 };
 
 
@@ -148,7 +151,7 @@ pub trait N5NdarrayReader : N5Reader {
         data_attrs: &DatasetAttributes,
         bbox: &BoundingBox,
     ) -> Result<ndarray::Array<T, ndarray::Dim<ndarray::IxDynImpl>>, Error>
-        where VecDataBlock<T>: DataBlock<T>,
+        where VecDataBlock<T>: DataBlock<T> + ReinitDataBlock + ReadableDataBlock,
               T: ReflectedType + num_traits::identities::Zero {
 
         if bbox.offset.len() != data_attrs.get_ndim() {
@@ -214,7 +217,7 @@ pub trait N5NdarrayWriter : N5Writer {
         array: &ndarray::Array<T, ndarray::Dim<ndarray::IxDynImpl>>,
         fill_val: T,
     ) -> Result<(), Error>
-        where VecDataBlock<T>: DataBlock<T>,
+        where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock + WriteableDataBlock,
               T: ReflectedType + num_traits::identities::Zero {
 
         if array.ndim() != data_attrs.get_ndim() {
@@ -252,7 +255,7 @@ pub trait N5NdarrayWriter : N5Writer {
                 let (block_bb, mut block_array) = match block_opt {
                     Some(block) => {
                         let block_bb = block.get_bounds(data_attrs);
-                        let block_array = Array::from_shape_vec(block_bb.size_ndarray_shape().f(), block.into())
+                        let block_array = Array::from_shape_vec(block_bb.size_ndarray_shape().f(), block.into_data())
                             .expect("TODO: block ndarray failed");
                         (block_bb, block_array)
                     },

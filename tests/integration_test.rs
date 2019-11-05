@@ -27,10 +27,10 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
         block_data.push(rng.gen());
     }
 
-    let block_in = VecDataBlock::new(
+    let block_in = SliceDataBlock::new(
         block_size,
         smallvec![0; dim],
-        block_data.clone());
+        block_data);
 
     let path_name = "test/dataset/group";
 
@@ -39,10 +39,12 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
     n.write_block(path_name, &data_attrs, &block_in)
         .expect("Failed to write block");
 
+    let block_data = block_in.into_data();
+
     let block_out = n.read_block::<T>(path_name, &data_attrs, smallvec![0; dim])
         .expect("Failed to read block")
         .expect("Block is empty");
-    assert_eq!(block_out.get_data(), &block_data);
+    assert_eq!(block_out.get_data(), &block_data[..]);
 
     let mut into_block = VecDataBlock::new(
         smallvec![0; dim],
@@ -51,7 +53,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
     n.read_block_into(path_name, &data_attrs, smallvec![0; dim], &mut into_block)
         .expect("Failed to read block")
         .expect("Block is empty");
-    assert_eq!(into_block.get_data(), &block_data);
+    assert_eq!(into_block.get_data(), &block_data[..]);
 
     n.remove(path_name).unwrap();
 }
