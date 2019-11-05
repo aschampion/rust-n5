@@ -1,5 +1,8 @@
 use smallvec::smallvec;
-use rand::Rng;
+use rand::{
+    distributions::Standard,
+    Rng,
+};
 
 use n5::prelude::*;
 
@@ -21,11 +24,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
     );
     let numel = data_attrs.get_block_num_elements();
     let mut rng = rand::thread_rng();
-    let mut block_data = Vec::<T>::with_capacity(numel);
-
-    for _ in 0..numel {
-        block_data.push(rng.gen());
-    }
+    let block_data: Vec<T> = rng.sample_iter(&Standard).take(numel).collect();
 
     let block_in = SliceDataBlock::new(
         block_size,
