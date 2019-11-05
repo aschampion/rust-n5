@@ -1,4 +1,4 @@
-# N5 [![Build Status](https://travis-ci.org/aschampion/rust-n5.svg?branch=master)](https://travis-ci.org/aschampion/rust-n5)
+# N5 [![Build Status](https://travis-ci.org/aschampion/rust-n5.svg?branch=master)](https://travis-ci.org/aschampion/rust-n5) [![Coverage](https://codecov.io/gh/aschampion/rust-n5/branch/master/graph/badge.svg)](https://codecov.io/gh/aschampion/rust-n5)
 
 A (mostly pure) rust implementation of the [N5 "Not HDF5" n-dimensional tensor file system storage format](https://github.com/saalfeldlab/n5) created by the Saalfeld lab at Janelia Research Campus.
 
