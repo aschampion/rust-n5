@@ -73,7 +73,7 @@ fn write<T, N5>(
         pool_size: usize,
 ) where T: 'static + std::fmt::Debug + ReflectedType + PartialEq + Default + Sync + Send,
         N5: N5Writer + Sync + Send + Clone + 'static,
-        VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock {
+        SliceDataBlock<T, std::sync::Arc<[T]>>: n5::WriteableDataBlock {
 
     let block_size = smallvec![BLOCK_DIM; 3];
     let data_attrs = DatasetAttributes::new(
@@ -93,17 +93,18 @@ fn write<T, N5>(
     let mut all_jobs: Vec<CpuFuture<usize, std::io::Error>> =
         Vec::with_capacity((N_BLOCKS * N_BLOCKS * N_BLOCKS) as usize);
     let pool = CpuPool::new(pool_size);
+    let bd: std::sync::Arc<[T]> = block_data.to_owned().into();
 
     for x in 0..N_BLOCKS {
         for y in 0..N_BLOCKS {
             for z in 0..N_BLOCKS {
                 let bs = block_size.clone();
-                let bd = block_data.to_owned();
+                let bd = bd.clone();
                 let ni = n.clone();
                 let pn = path_name.clone();
                 let da = data_attrs.clone();
                 all_jobs.push(pool.spawn_fn(move || {
-                    let block_in = VecDataBlock::new(
+                    let block_in = SliceDataBlock::new(
                         bs,
                         smallvec![x, y, z],
                         bd);
@@ -124,7 +125,7 @@ fn bench_write_dtype_compression<T, C>(b: &mut Bencher, pool_size: usize)
                 std::convert::From<i8> + Sync + Send,
             C: compression::Compression,
             CompressionType: std::convert::From<C>,
-            VecDataBlock<T>: n5::ReadableDataBlock + n5::WriteableDataBlock {
+            SliceDataBlock<T, std::sync::Arc<[T]>>: n5::WriteableDataBlock {
 
     let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
     let path_str = dir.path().to_str().unwrap();
