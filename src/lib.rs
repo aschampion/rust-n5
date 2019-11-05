@@ -383,6 +383,8 @@ impl<C: AsMut<[i8]>> ReadableDataBlock for SliceDataBlock<i8, C> {
     fn read_data<R: std::io::Read>(&mut self, mut source: R) -> std::io::Result<()> {
         // Unsafe necessary here because we need a &mut [u8] to avoid doing
         // individual reads to the i8 data. This is safe.
+        // Note that byteorder's read_i8_into is not used, because it is also
+        // unsafe under the hood and moreso than this incantation.
         let data_ref = unsafe { &mut *(self.data.as_mut() as *mut [i8] as *mut [u8]) };
         source.read_exact(data_ref)
     }
