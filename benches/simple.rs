@@ -5,7 +5,10 @@
 extern crate test;
 
 
-use rand::Rng;
+use rand::{
+    distributions::Standard,
+    Rng,
+};
 use test::Bencher;
 
 use n5::prelude::*;
@@ -33,11 +36,7 @@ fn test_block_compression_rw<T>(
     );
     let numel = data_attrs.get_block_num_elements();
     let mut rng = rand::thread_rng();
-    let mut block_data = Vec::<T>::with_capacity(numel);
-
-    for _ in 0..numel {
-        block_data.push(rng.gen());
-    }
+    let block_data: Vec<T> = rng.sample_iter(&Standard).take(numel).collect();
 
     let block_in = VecDataBlock::new(
         data_attrs.get_block_size().into(),
