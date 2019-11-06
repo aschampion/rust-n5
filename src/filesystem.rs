@@ -457,10 +457,10 @@ mod tests {
             crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
         );
         let block_data: Vec<i32> = (0..125_i32).collect();
-        let block_in = crate::VecDataBlock::new(
+        let block_in = crate::SliceDataBlock::new(
             data_attrs.block_size.clone(),
             smallvec![0, 0, 0],
-            block_data.clone());
+            &block_data);
 
         create.create_dataset("foo/bar", &data_attrs)
             .expect("Failed to create dataset");
