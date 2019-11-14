@@ -122,7 +122,7 @@ impl std::fmt::Display for DataType {
 /// The supertraits are not necessary for this trait, but are used to
 /// remove redundant bounds elsewhere when operating generically over
 /// data types.
-pub trait ReflectedType: Clone + Default {
+pub trait ReflectedType: Send + Sync + Clone + Default + 'static {
     const VARIANT: DataType;
 
     fn create_data_block(

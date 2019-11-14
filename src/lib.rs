@@ -295,12 +295,20 @@ pub trait DataBlock<T> {
     fn get_data(&self) -> &[T];
 
     fn get_num_elements(&self) -> u32;
+
+    fn get_header(&self) -> BlockHeader {
+        BlockHeader {
+            size: self.get_size().into(),
+            grid_position: self.get_grid_position().into(),
+            num_el: self.get_num_elements() as usize,
+        }
+    }
 }
 
 /// A generic data block container wrapping any type that can be taken as a
 /// slice ref.
 #[derive(Clone)]
-pub struct SliceDataBlock<T: Clone, C> {
+pub struct SliceDataBlock<T: ReflectedType, C> {
     data_type: PhantomData<T>,
     size: BlockCoord,
     grid_position: GridCoord,
@@ -311,7 +319,7 @@ pub struct SliceDataBlock<T: Clone, C> {
 /// this type.
 pub type VecDataBlock<T> = SliceDataBlock<T, Vec<T>>;
 
-impl<T: Clone, C> SliceDataBlock<T, C> {
+impl<T: ReflectedType, C> SliceDataBlock<T, C> {
     pub fn new(size: BlockCoord, grid_position: GridCoord, data: C) -> SliceDataBlock<T, C> {
         SliceDataBlock {
             data_type: PhantomData,
@@ -326,7 +334,7 @@ impl<T: Clone, C> SliceDataBlock<T, C> {
     }
 }
 
-impl<T: Clone + Default> ReinitDataBlock<T> for VecDataBlock<T> {
+impl<T: ReflectedType> ReinitDataBlock<T> for VecDataBlock<T> {
     fn reinitialize(&mut self, header: BlockHeader) {
         self.size = header.size;
         self.grid_position = header.grid_position;
@@ -408,7 +416,7 @@ impl<C: AsRef<[i8]>> WriteableDataBlock for SliceDataBlock<i8, C> {
     }
 }
 
-impl<T: Clone, C: AsRef<[T]>> DataBlock<T> for SliceDataBlock<T, C> {
+impl<T: ReflectedType, C: AsRef<[T]>> DataBlock<T> for SliceDataBlock<T, C> {
     fn get_size(&self) -> &[u32] {
         &self.size
     }
