@@ -106,7 +106,7 @@ pub trait N5Reader {
               T: ReflectedType;
 
     /// Read a single dataset block into an existing buffer.
-    fn read_block_into<T: ReflectedType, B: DataBlock<T> + ReinitDataBlock + ReadableDataBlock>(
+    fn read_block_into<T: ReflectedType, B: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
@@ -268,8 +268,10 @@ pub struct BlockHeader {
     num_el: usize,
 }
 
-pub trait ReinitDataBlock {
+pub trait ReinitDataBlock<T> {
     fn reinitialize(&mut self, header: BlockHeader);
+
+    fn reinitialize_with<B: DataBlock<T>>(&mut self, other: &B);
 }
 
 pub trait ReadableDataBlock {
@@ -324,11 +326,18 @@ impl<T: Clone, C> SliceDataBlock<T, C> {
     }
 }
 
-impl<T: Clone + Default> ReinitDataBlock for VecDataBlock<T> {
+impl<T: Clone + Default> ReinitDataBlock<T> for VecDataBlock<T> {
     fn reinitialize(&mut self, header: BlockHeader) {
         self.size = header.size;
         self.grid_position = header.grid_position;
         self.data.resize_with(header.num_el, Default::default);
+    }
+
+    fn reinitialize_with<B: DataBlock<T>>(&mut self, other: &B) {
+        self.size = other.get_size().into();
+        self.grid_position = other.get_grid_position().into();
+        self.data.clear();
+        self.data.extend_from_slice(other.get_data());
     }
 }
 
@@ -465,7 +474,7 @@ pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHe
         Ok(block)
     }
 
-    fn read_block_into<B: DataBlock<T> + ReinitDataBlock + ReadableDataBlock>(
+    fn read_block_into<B: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock>(
         mut buffer: R,
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,

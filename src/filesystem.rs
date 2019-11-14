@@ -208,7 +208,7 @@ impl N5Reader for N5Filesystem {
         }
     }
 
-    fn read_block_into<T: ReflectedType, B: DataBlock<T> + ReinitDataBlock + ReadableDataBlock>(
+    fn read_block_into<T: ReflectedType, B: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,

@@ -151,7 +151,7 @@ pub trait N5NdarrayReader : N5Reader {
         data_attrs: &DatasetAttributes,
         bbox: &BoundingBox,
     ) -> Result<ndarray::Array<T, ndarray::Dim<ndarray::IxDynImpl>>, Error>
-        where VecDataBlock<T>: DataBlock<T> + ReinitDataBlock + ReadableDataBlock,
+        where VecDataBlock<T>: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock,
               T: ReflectedType + num_traits::identities::Zero {
 
         if bbox.offset.len() != data_attrs.get_ndim() {
