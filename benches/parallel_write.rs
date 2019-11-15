@@ -57,7 +57,7 @@ lazy_static! {
                 },
             }
 
-            decoder = decoder.next_image().unwrap();
+            decoder.next_image().unwrap();
         }
 
         pixels
