@@ -1,5 +1,7 @@
 #![cfg(feature = "use_ndarray")]
 
+use std::iter::FromIterator;
+
 use ndarray::Array;
 use smallvec::smallvec;
 use rand::Rng;
