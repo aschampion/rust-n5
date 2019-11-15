@@ -27,7 +27,6 @@ use byteorder::{
     ReadBytesExt,
     WriteBytesExt,
 };
-use lazy_static::lazy_static;
 use serde::{
     Deserialize,
     Serialize,
@@ -56,11 +55,7 @@ pub type BlockCoord = CoordVec<u32>;
 pub type GridCoord = CoordVec<u64>;
 
 
-lazy_static! {
-    pub static ref VERSION: Version = {
-        Version::new(2, 1, 3, "")
-    };
-}
+pub use version::VERSION;
 
 /// Key name for the version attribute in the container root.
 pub const VERSION_ATTRIBUTE_KEY: &str = "n5";

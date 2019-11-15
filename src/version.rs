@@ -24,6 +24,14 @@ pub struct Version {
     suffix: String,
 }
 
+/// Version of the Java N5 spec supported by this library.
+pub const VERSION: Version = Version {
+    major: 2,
+    minor: 1,
+    patch: 3,
+    suffix: String::new(),
+};
+
 impl Version {
     pub fn new(major: i32, minor: i32, patch: i32, suffix: &str) -> Version {
         Version {

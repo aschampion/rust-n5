@@ -8,6 +8,10 @@ Compatible with Java N5 Version 2.1.3.
 - Dataset paths are relative. The root path in a dataset is `""`, not `"/"`.
 - Dataset paths are more strict. Calling methods with paths outside the dataset, e.g., `".."`, will return a `Result::Err`.
 
+## Minimum supported Rust version (MSRV)
+
+Stable 1.39
+
 ## Quick start
 
 ```toml
@@ -16,8 +20,6 @@ n5 = "0.4"
 ```
 
 ```rust
-extern crate n5;
-
 use n5::prelude::*;
 use n5::smallvec::smallvec;
 

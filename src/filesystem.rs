@@ -392,7 +392,7 @@ mod tests {
         let read = N5Filesystem::open(path_str)
             .expect("Failed to open N5 filesystem");
 
-        assert_eq!(read.get_version().expect("Cannot read version"), *crate::VERSION);
+        assert_eq!(read.get_version().expect("Cannot read version"), crate::VERSION);
         assert_eq!(read.list_attributes("").unwrap()["foo"], "bar");
     }
 
