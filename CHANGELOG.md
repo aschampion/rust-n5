@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2019-11-15
+### Changed
+- The minimum supported Rust version is now 1.39.
+- All coordinates are now unsigned rather than signed integers, since Java N5
+  has adopted this recommendation as of spec version 2.1.3.
+- `SliceDataBlock` trait allows using slices for `write_block` and
+  `read_block_into`.
+- `ReadableDataBlock`, `ReinitDataBlock`, and `WriteableDataBlock` traits and
+  bounds have been refactored to allow writing of const slices, reinitialization
+  without reserialization, and other features.
+- `ReflectedType` now has more bounds for thread safety.
+- LZ4 blocks are now written in independent mode, to more closely match the
+  behavior of Java N5.
+- `read_ndarray` now performs fewer allocations.
+
+
 ## [0.4.0] - 2019-06-05
 ### Added
 - `N5Reader::read_block_into`: read a block into an existing `VecDataBlock`
@@ -23,6 +39,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Removed
 - `TypeReflection` trait.
 - `DataBlockCreator` trait.
+
 
 ## [0.3.0] - 2019-01-16
 ### Changed
