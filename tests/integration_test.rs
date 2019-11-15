@@ -23,7 +23,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
         compression.clone(),
     );
     let numel = data_attrs.get_block_num_elements();
-    let mut rng = rand::thread_rng();
+    let rng = rand::thread_rng();
     let block_data: Vec<T> = rng.sample_iter(&Standard).take(numel).collect();
 
     let block_in = SliceDataBlock::new(

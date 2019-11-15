@@ -99,7 +99,7 @@ fn test_write_read_ndarray() {
     n.create_dataset(path_name, &data_attrs)
         .expect("Failed to create dataset");
 
-    let mut rng = rand::thread_rng();
+    let rng = rand::thread_rng();
     let arr_shape = [3, 35, 15, 7];
     let array: Array<i32, _> = Array::from_iter(
             rng.sample_iter(&Standard)
