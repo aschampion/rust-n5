@@ -14,11 +14,14 @@ doc_comment::doctest!("../README.md");
 pub extern crate smallvec;
 
 
+use std::fmt::Write;
 use std::io::{
     Error,
     ErrorKind,
+    Read,
 };
 use std::marker::PhantomData;
+use std::path::PathBuf;
 use std::time::SystemTime;
 
 use byteorder::{
@@ -67,6 +70,21 @@ pub struct DataBlockMetadata {
     pub modified: SystemTime,
 }
 
+pub trait ReadableStore {
+    type GetReader: Read;
+
+    /// TODO: not in zarr spec
+    fn exists(&self, key: &str) -> Result<bool, Error>;
+
+    fn get(&self, key: &str) -> Result<Option<Self::GetReader>, Error>;
+}
+
+pub trait WriteableStore {
+    fn set(&self, key: &str, value: &[u8]) -> Result<(), Error>;
+
+    fn delete(&self, key: &str) -> Result<(), Error>;
+}
+
 /// Non-mutating operations on N5 containers.
 pub trait N5Reader {
     /// Get the N5 specification version of the container.
@@ -76,11 +94,11 @@ pub trait N5Reader {
     fn get_dataset_attributes(&self, path_name: &str) -> Result<DatasetAttributes, Error>;
 
     /// Test whether a group or dataset exists.
-    fn exists(&self, path_name: &str) -> bool;
+    fn exists(&self, path_name: &str) -> Result<bool, Error>;
 
     /// Test whether a dataset exists.
-    fn dataset_exists(&self, path_name: &str) -> bool {
-        self.exists(path_name) && self.get_dataset_attributes(path_name).is_ok()
+    fn dataset_exists(&self, path_name: &str) -> Result<bool, Error> {
+        Ok(self.exists(path_name)? && self.get_dataset_attributes(path_name).is_ok())
     }
 
     /// Get a URI string for a data block.
@@ -117,11 +135,98 @@ pub trait N5Reader {
         grid_position: &[u64],
     ) -> Result<Option<DataBlockMetadata>, Error>;
 
-    /// List all groups (including datasets) in a group.
-    fn list(&self, path_name: &str) -> Result<Vec<String>, Error>;
-
     /// List all attributes of a group.
     fn list_attributes(&self, path_name: &str) -> Result<serde_json::Value, Error>;
+}
+
+impl<S: ReadableStore> N5Reader for S {
+    fn get_version(&self) -> Result<Version, Error> {
+        todo!()
+    }
+
+    fn get_dataset_attributes(&self, path_name: &str) -> Result<DatasetAttributes, Error> {
+        let dataset_path = format!("{}.array", path_name);
+        let value_reader = ReadableStore::get(self, &dataset_path)?
+            .ok_or_else(|| Error::from(std::io::ErrorKind::NotFound))?;
+        Ok(serde_json::from_reader(value_reader)?)
+    }
+
+    fn exists(&self, path_name: &str) -> Result<bool, Error> {
+        self.exists(path_name)
+    }
+
+    fn get_block_uri(&self, path_name: &str, grid_position: &[u64]) -> Result<String, Error> {
+        todo!()
+    }
+
+    fn read_block<T>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        grid_position: GridCoord,
+    ) -> Result<Option<VecDataBlock<T>>, Error>
+        where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock,
+              T: ReflectedType {
+
+        // TODO convert asserts to errors
+        assert!(data_attrs.in_bounds(&grid_position));
+
+        // Construct block path string
+        let block_path = get_block_path(path_name, &grid_position);
+
+        // Get key from store
+        let value_reader = ReadableStore::get(self, &block_path)?;
+
+        // Read value into container
+        value_reader.map(|reader|
+            <crate::DefaultBlock as DefaultBlockReader<T, _>>::read_block(
+                reader,
+                data_attrs,
+                grid_position))
+            .transpose()
+    }
+
+    fn read_block_into<T: ReflectedType, B: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        grid_position: GridCoord,
+        block: &mut B,
+    ) -> Result<Option<()>, Error> {
+        todo!()
+    }
+
+    fn block_metadata(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        grid_position: &[u64],
+    ) -> Result<Option<DataBlockMetadata>, Error> {
+        todo!()
+    }
+
+    fn list_attributes(&self, path_name: &str) -> Result<serde_json::Value, Error> {
+        todo!()
+    }
+}
+
+pub trait N5Lister {
+    /// List all groups (including datasets) in a group.
+    fn list(&self, path_name: &str) -> Result<Vec<String>, Error>;
+}
+
+fn get_block_path(base_path: &str, grid_position: &[u64]) -> String {
+    // TODO cleanup
+    let mut block_path = match grid_position.len() {
+        0 => base_path.to_owned(),
+        _ => format!("{}/", base_path),
+    };
+    write!(block_path, "{}",
+        grid_position.iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>().join(".")).unwrap();
+
+    block_path
 }
 
 /// Mutating operations on N5 containers.
@@ -193,6 +298,75 @@ pub trait N5Writer : N5Reader {
     ) -> Result<(), Error>;
 }
 
+impl<S: ReadableStore + WriteableStore> N5Writer for S {
+    fn set_attributes(
+        &self, // TODO: should this be mut for semantics?
+        path_name: &str,
+        attributes: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn create_group(&self, path_name: &str) -> Result<(), Error> {
+        let path_buf = PathBuf::from(path_name);
+        if let Some(parent) = path_buf.parent() {
+            self.create_group(parent.to_str().expect("TODO"))?;
+        }
+        let metadata_path = path_buf.join(GROUP_METADATA_PATH);
+        if self.exists(path_buf.join(ARRAY_METADATA_PATH).to_str().expect("TODO"))? {
+            Err(Error::new(std::io::ErrorKind::AlreadyExists,
+                "Array already exists at group path"))
+        } else if self.exists(metadata_path.to_str().expect("TODO"))? {
+            Ok(())
+        } else {
+            self.set(
+                metadata_path.to_str().expect("TODO"),
+                &serde_json::to_vec(&GroupMetadata::default())?)
+        }
+    }
+
+    fn remove(
+        &self,
+        path_name: &str,
+    ) -> Result<(), Error> {
+        todo!()
+    }
+
+    fn write_block<T, B: DataBlock<T> + WriteableDataBlock>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        block: &B,
+    ) -> Result<(), Error> {
+
+        // TODO convert assert
+        // assert!(data_attrs.in_bounds(block.get_grid_position()));
+
+        let block_path = get_block_path(path_name, block.get_grid_position());
+
+        let block_vec
+    }
+}
+
+const ARRAY_METADATA_PATH: &str = ".array";
+const GROUP_METADATA_PATH: &str = ".group";
+
+/// Metadata for groups.
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GroupMetadata {
+    extensions: Vec<serde_json::Value>,
+    attributes: serde_json::Map<String, serde_json::Value>
+}
+
+impl Default for GroupMetadata {
+    fn default() -> Self {
+        GroupMetadata {
+            extensions: Vec::new(),
+            attributes: serde_json::Map::new(),
+        }
+    }
+}
 
 /// Attributes of a tensor dataset.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]

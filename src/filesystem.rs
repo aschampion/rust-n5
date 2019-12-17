@@ -34,9 +34,11 @@ use crate::{
     DefaultBlockReader,
     DefaultBlockWriter,
     GridCoord,
+    N5Lister,
     N5Reader,
     N5Writer,
     ReadableDataBlock,
+    ReadableStore,
     ReflectedType,
     ReinitDataBlock,
     VecDataBlock,
@@ -62,7 +64,7 @@ impl N5Filesystem {
             base_path: PathBuf::from(base_path),
         };
 
-        if reader.exists("") {
+        if reader.exists("")? {
             let version = reader.get_version()?;
 
             if !crate::VERSION.is_compatible(&version) {
@@ -93,7 +95,7 @@ impl N5Filesystem {
     }
 
     pub fn get_attributes(&self, path_name: &str) -> Result<Value> {
-        if self.exists(path_name) {
+        if self.exists(path_name)? {
             let attr_path = self.base_path.join(path_name).join(ATTRIBUTES_FILE);
 
             if attr_path.exists() && attr_path.is_file() {
@@ -157,123 +159,23 @@ impl N5Filesystem {
     }
 }
 
-impl N5Reader for N5Filesystem {
-    fn get_version(&self) -> Result<Version> {
-        // TODO: dedicated error type should clean this up.
-        Ok(Version::from_str(self
-                .get_attributes("")?
-                .get(crate::VERSION_ATTRIBUTE_KEY)
-                    .ok_or_else(|| Error::new(ErrorKind::NotFound, "Version attribute not present"))?
-                .as_str().unwrap_or("")
-            ).unwrap())
+impl ReadableStore for N5Filesystem {
+    type GetReader = BufReader<File>;
+
+    fn exists(&self, key: &str) -> Result<bool> {
+        let target = self.base_path.join(key);
+        Ok(target.is_file())
     }
 
-    fn get_dataset_attributes(&self, path_name: &str) -> Result<DatasetAttributes> {
-        let attr_path = self.get_attributes_path(path_name)?;
-        let reader = BufReader::new(File::open(attr_path)?);
-        Ok(serde_json::from_reader(reader)?)
-    }
-
-    fn exists(&self, path_name: &str) -> bool {
-        let target = self.base_path.join(path_name);
-        target.is_dir()
-    }
-
-    fn get_block_uri(&self, path_name: &str, grid_position: &[u64]) -> Result<String> {
-        self.get_data_block_path(path_name, grid_position)?.to_str()
-            // TODO: could use URL crate and `from_file_path` here.
-            .map(|s| format!("file://{}", s))
-            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Paths must be UTF-8"))
-    }
-
-    fn read_block<T>(
-        &self,
-        path_name: &str,
-        data_attrs: &DatasetAttributes,
-        grid_position: GridCoord,
-    ) -> Result<Option<VecDataBlock<T>>>
-            where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock,
-                  T: ReflectedType {
-        let block_file = self.get_data_block_path(path_name, &grid_position)?;
-        if block_file.is_file() {
-            let file = File::open(block_file)?;
-            file.lock_shared()?;
-            let reader = BufReader::new(file);
-            Ok(Some(<crate::DefaultBlock as DefaultBlockReader<T, _>>::read_block(
-                reader,
-                data_attrs,
-                grid_position)?))
+    fn get(&self, key: &str) -> Result<Option<Self::GetReader>> {
+        let target = self.base_path.join(key);
+        if target.is_file() {
+            let file = File::open(target)?;
+            // TODO: lock
+            Ok(Some(BufReader::new(file)))
         } else {
             Ok(None)
         }
-    }
-
-    fn read_block_into<T: ReflectedType, B: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock>(
-        &self,
-        path_name: &str,
-        data_attrs: &DatasetAttributes,
-        grid_position: GridCoord,
-        block: &mut B,
-    ) -> Result<Option<()>> {
-        let block_file = self.get_data_block_path(path_name, &grid_position)?;
-        if block_file.is_file() {
-            let file = File::open(block_file)?;
-            file.lock_shared()?;
-            let reader = BufReader::new(file);
-            <crate::DefaultBlock as DefaultBlockReader<T, _>>::read_block_into(
-                reader,
-                data_attrs,
-                grid_position,
-                block)?;
-            Ok(Some(()))
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn block_metadata(
-        &self,
-        path_name: &str,
-        _data_attrs: &DatasetAttributes,
-        grid_position: &[u64],
-    ) -> Result<Option<DataBlockMetadata>> {
-        let block_file = self.get_data_block_path(path_name, grid_position)?;
-        if block_file.is_file() {
-            let metadata = std::fs::metadata(block_file)?;
-            Ok(Some(DataBlockMetadata {
-                created: metadata.created()?,
-                accessed: metadata.accessed()?,
-                modified: metadata.modified()?,
-            }))
-        } else {
-            Ok(None)
-        }
-    }
-
-    fn list(&self, path_name: &str) -> Result<Vec<String>> {
-        // TODO: shouldn't do this in a closure to not equivocate errors with Nones.
-        Ok(fs::read_dir(self.get_path(path_name)?)?
-            .filter_map(|e| {
-                if let Ok(file) = e {
-                    if file.file_type().map(|f| f.is_dir()).ok() == Some(true) {
-                        file.file_name().into_string().ok()
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect())
-    }
-
-    // TODO: dupe with get_attributes w/ different empty behaviors
-    fn list_attributes(&self, path_name: &str) -> Result<Value> {
-        let attr_path = self.get_attributes_path(path_name)?;
-        let file = File::open(attr_path)?;
-        file.lock_shared()?;
-        let reader = BufReader::new(file);
-        Ok(serde_json::from_reader(reader)?)
     }
 }
 
@@ -292,86 +194,6 @@ fn merge(a: &mut Value, b: &Value) {
     }
 }
 
-impl N5Writer for N5Filesystem {
-    fn set_attributes(
-        &self,
-        path_name: &str,
-        attributes: serde_json::Map<String, Value>,
-    ) -> Result<()> {
-        let mut file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(self.get_attributes_path(path_name)?)?;
-        file.lock_exclusive()?;
-
-        let mut existing_buf = String::new();
-        file.read_to_string(&mut existing_buf)?;
-        file.seek(SeekFrom::Start(0))?;
-        let existing = serde_json::from_str(&existing_buf).unwrap_or_else(|_| json!({}));
-        let mut merged = existing.clone();
-
-        let new: Value = attributes.into();
-
-        merge(&mut merged, &new);
-
-        if new != existing {
-            let writer = BufWriter::new(file);
-            serde_json::to_writer(writer, &merged)?;
-        }
-
-        Ok(())
-    }
-
-    fn create_group(&self, path_name: &str) -> Result<()> {
-        let path = self.get_path(path_name)?;
-        fs::create_dir_all(path)
-    }
-
-    fn remove(
-        &self,
-        path_name: &str,
-    ) -> Result<()> {
-        let path = self.get_path(path_name)?;
-
-        for entry in WalkDir::new(path).contents_first(true) {
-            let entry = entry?;
-
-            if entry.file_type().is_dir() {
-                fs::remove_dir(entry.path())?;
-            } else {
-                let file = File::open(entry.path())?;
-                file.lock_exclusive()?;
-                fs::remove_file(entry.path())?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn write_block<T, B: DataBlock<T> + WriteableDataBlock>(
-        &self,
-        path_name: &str,
-        data_attrs: &DatasetAttributes,
-        block: &B,
-    ) -> Result<()> {
-        let path = self.get_data_block_path(path_name, block.get_grid_position())?;
-        fs::create_dir_all(path.parent().expect("TODO: root block path?"))?;
-
-        let file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)?;
-        file.lock_exclusive()?;
-
-        let buffer = BufWriter::new(file);
-        <crate::DefaultBlock as DefaultBlockWriter<T, _, _>>::write_block(
-                buffer,
-                data_attrs,
-                block)
-    }
-}
 
 #[cfg(test)]
 mod tests {
