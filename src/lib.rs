@@ -254,6 +254,34 @@ impl DatasetAttributes {
     pub fn get_block_num_elements(&self) -> usize {
         self.block_size.iter().map(|&d| d as usize).product()
     }
+
+    /// Get the upper bound extent of grid coordinates.
+    pub fn get_grid_extent(&self) -> GridCoord {
+        self.dimensions.iter()
+            .zip(self.block_size.iter())
+            .map(|(d, &b)| d / u64::from(b))
+            .collect()
+    }
+
+    /// Check whether a block grid position is in the bounds of this dataset.
+    /// ```
+    /// use n5::prelude::*;
+    /// use n5::smallvec::smallvec;
+    /// let attrs = DatasetAttributes::new(
+    ///     smallvec![50, 40, 30],
+    ///     smallvec![10, 10, 10],
+    ///     DataType::UINT8,
+    ///     n5::compression::CompressionType::default(),
+    /// );
+    /// assert!(attrs.in_bounds(&smallvec![4, 3, 2]));
+    /// assert!(!attrs.in_bounds(&smallvec![5, 3, 2]));
+    /// ```
+    pub fn in_bounds(&self, grid_position: &GridCoord) -> bool {
+        self.dimensions.len() == grid_position.len() &&
+        self.get_grid_extent().iter()
+            .zip(grid_position.iter())
+            .all(|(&bound, &coord)| coord < bound)
+    }
 }
 
 
