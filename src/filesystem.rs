@@ -204,24 +204,6 @@ impl WriteableStore for N5Filesystem {
 
 }
 
-// From: https://github.com/serde-rs/json/issues/377
-// TODO: Could be much better.
-fn merge(a: &mut Value, b: &Value) {
-    match (a, b) {
-        (&mut Value::Object(ref mut a), &Value::Object(ref b)) => {
-            for (k, v) in b {
-                merge(a.entry(k.clone()).or_insert(Value::Null), v);
-            }
-        }
-        (a, b) => {
-            *a = b.clone();
-        }
-    }
-}
-
-
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,7 +250,7 @@ mod tests {
         let read = N5Filesystem::open(path_str)
             .expect("Failed to open N5 filesystem");
 
-        // assert_eq!(read.get_dataset_attributes("foo/bar").unwrap(), data_attrs);
+        assert_eq!(read.get_dataset_attributes("foo/bar").unwrap(), data_attrs);
     }
 
     #[test]

@@ -34,6 +34,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use serde_json::Value;
 use smallvec::SmallVec;
 
 use crate::compression::Compression;
@@ -147,8 +148,8 @@ impl<S: ReadableStore> N5Reader for S {
     }
 
     fn get_dataset_attributes(&self, path_name: &str) -> Result<DatasetAttributes, Error> {
-        let dataset_path = format!("{}.array", path_name);
-        let value_reader = ReadableStore::get(self, &dataset_path)?
+        let dataset_path = PathBuf::from(path_name).join(ARRAY_METADATA_PATH);
+        let value_reader = ReadableStore::get(self, &dataset_path.to_str().expect("TODO"))?
             .ok_or_else(|| Error::from(std::io::ErrorKind::NotFound))?;
         Ok(serde_json::from_reader(value_reader)?)
     }
@@ -298,13 +299,51 @@ pub trait N5Writer : N5Reader {
     ) -> Result<(), Error>;
 }
 
+// From: https://github.com/serde-rs/json/issues/377
+// TODO: Could be much better.
+fn merge(a: &mut Value, b: &Value) {
+    match (a, b) {
+        (&mut Value::Object(ref mut a), &Value::Object(ref b)) => {
+            for (k, v) in b {
+                merge(a.entry(k.clone()).or_insert(Value::Null), v);
+            }
+        }
+        (a, b) => {
+            *a = b.clone();
+        }
+    }
+}
+
 impl<S: ReadableStore + WriteableStore> N5Writer for S {
     fn set_attributes(
         &self, // TODO: should this be mut for semantics?
         path_name: &str,
         attributes: serde_json::Map<String, serde_json::Value>,
     ) -> Result<(), Error> {
-        todo!()
+        let path_buf = PathBuf::from(path_name);
+        let metadata_path = if self.exists(path_buf.join(ARRAY_METADATA_PATH).to_str().expect("TODO"))? {
+            path_buf.join(ARRAY_METADATA_PATH)
+        } else if self.exists(path_buf.join(GROUP_METADATA_PATH).to_str().expect("TODO"))? {
+            path_buf.join(GROUP_METADATA_PATH)
+        } else {
+            return Err(Error::new(std::io::ErrorKind::NotFound, "Node does not exist at path"))
+        };
+
+        // TODO: race condition
+        let value_reader = ReadableStore::get(self, &metadata_path.to_str().expect("TODO"))?
+            .ok_or_else(|| Error::from(std::io::ErrorKind::NotFound))?;
+        let existing: Value = serde_json::from_reader(value_reader)?;
+        
+        let mut merged = existing.clone();
+        let new: Value = attributes.into();
+        merge(&mut merged, &new);
+        if merged != existing {
+            self.set(
+                metadata_path.to_str().expect("TODO"),
+                |writer| Ok(serde_json::to_writer(writer, &merged)?),
+            )?;
+        }
+        Ok(())
     }
 
     fn create_group(&self, path_name: &str) -> Result<(), Error> {
