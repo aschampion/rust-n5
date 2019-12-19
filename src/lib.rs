@@ -14,11 +14,11 @@ doc_comment::doctest!("../README.md");
 pub extern crate smallvec;
 
 
-use std::fmt::Write;
 use std::io::{
     Error,
     ErrorKind,
     Read,
+    Write,
 };
 use std::marker::PhantomData;
 use std::path::PathBuf;
@@ -80,7 +80,9 @@ pub trait ReadableStore {
 }
 
 pub trait WriteableStore {
-    fn set(&self, key: &str, value: &[u8]) -> Result<(), Error>;
+    type SetWriter: Write;
+
+    fn set<F: FnOnce(Self::SetWriter) -> Result<(), Error>>(&self, key: &str, value: F) -> Result<(), Error>;
 
     fn delete(&self, key: &str) -> Result<(), Error>;
 }
@@ -216,6 +218,7 @@ pub trait N5Lister {
 }
 
 fn get_block_path(base_path: &str, grid_position: &[u64]) -> String {
+    use std::fmt::Write;
     // TODO cleanup
     let mut block_path = match grid_position.len() {
         0 => base_path.to_owned(),
@@ -272,10 +275,7 @@ pub trait N5Writer : N5Reader {
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
-    ) -> Result<(), Error> {
-        self.create_group(path_name)?;
-        self.set_dataset_attributes(path_name, data_attrs)
-    }
+    ) -> Result<(), Error>;
 
     /// Remove the N5 container.
     fn remove_all(&self) -> Result<(), Error> {
@@ -321,7 +321,26 @@ impl<S: ReadableStore + WriteableStore> N5Writer for S {
         } else {
             self.set(
                 metadata_path.to_str().expect("TODO"),
-                &serde_json::to_vec(&GroupMetadata::default())?)
+                |writer| Ok(serde_json::to_writer(writer, &GroupMetadata::default())?),
+            )
+        }
+    }
+
+    fn create_dataset(&self, path_name: &str, data_attrs: &DatasetAttributes) -> Result<(), Error> {
+        let path_buf = PathBuf::from(path_name);
+        if let Some(parent) = path_buf.parent() {
+            self.create_group(parent.to_str().expect("TODO"))?;
+        }
+        let metadata_path = path_buf.join(ARRAY_METADATA_PATH);
+        if self.exists(path_buf.join(GROUP_METADATA_PATH).to_str().expect("TODO"))?
+                || self.exists(metadata_path.to_str().expect("TODO"))? {
+            Err(Error::new(std::io::ErrorKind::AlreadyExists,
+                "Node already exists at array path"))
+        } else {
+            self.set(
+                metadata_path.to_str().expect("TODO"),
+                |writer| Ok(serde_json::to_writer(writer, data_attrs)?),
+            )
         }
     }
 
@@ -343,8 +362,11 @@ impl<S: ReadableStore + WriteableStore> N5Writer for S {
         // assert!(data_attrs.in_bounds(block.get_grid_position()));
 
         let block_path = get_block_path(path_name, block.get_grid_position());
-
-        let block_vec
+        self.set(&block_path, |writer|
+            <DefaultBlock as DefaultBlockWriter<T, _, _>>::write_block(
+                writer, data_attrs, block,
+            )
+        )
     }
 }
 
