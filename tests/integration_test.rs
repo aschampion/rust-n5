@@ -17,7 +17,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
 {
     let block_size: BlockCoord = (1..=dim as u32).rev().map(|d| d*5).collect();
     let data_attrs = DatasetAttributes::new(
-        (1..=dim as u64).map(|d| d*100).collect(),
+        (1..=dim as u64).map(|d| d*101).collect(),
         block_size.clone(),
         T::VARIANT,
         compression.clone(),

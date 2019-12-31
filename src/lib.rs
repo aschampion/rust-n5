@@ -418,7 +418,6 @@ impl<S: ReadableStore + WriteableStore> N5Writer for S {
 
         // TODO convert assert
         // assert!(data_attrs.in_bounds(block.get_grid_position()));
-
         let block_path = get_block_path(path_name, grid_position);
         self.set(&block_path, |writer|
             <DefaultBlock as DefaultBlockWriter<T, _, _>>::write_block(
@@ -536,13 +535,6 @@ impl DatasetAttributes {
             .zip(grid_position.iter())
             .all(|(&bound, &coord)| coord < bound)
     }
-}
-
-
-pub struct BlockHeader {
-    size: BlockCoord,
-    grid_position: GridCoord,
-    num_el: usize,
 }
 
 pub trait ReinitDataBlock<T> {
@@ -734,10 +726,16 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T> + WriteableDa
         data_attrs: &DatasetAttributes,
         block: &B,
     ) -> std::io::Result<()> {
-        let mut compressor = data_attrs.compression.encoder(buffer);
-        block.write_data(&mut compressor)?;
+        let expected_len = data_attrs.get_block_num_elements();
+        let actual_len = block.get_num_elements();
+        if expected_len != actual_len as usize {
+            Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Block is wrong size"))
+        } else {
+            let mut compressor = data_attrs.compression.encoder(buffer);
+            block.write_data(&mut compressor)?;
 
-        Ok(())
+            Ok(())
+        }
     }
 }
 
@@ -763,38 +761,6 @@ pub(crate) mod tests {
             data_type: DataType::INT16,
             compression,
         }
-    }
-
-    pub(crate) fn test_read_doc_spec_block(
-            block: &[u8],
-            compression: compression::CompressionType,
-    ) {
-        let buff = Cursor::new(block);
-        let data_attrs = doc_spec_dataset_attributes(compression);
-
-        let block = <DefaultBlock as DefaultBlockReader<i16, std::io::Cursor<&[u8]>>>::read_block(
-            buff,
-            &data_attrs,
-            smallvec![0, 0, 0]).expect("read_block failed");
-
-        assert_eq!(block.get_data().len(), data_attrs.get_block_num_elements());
-        assert_eq!(block.get_data(), &DOC_SPEC_BLOCK_DATA);
-    }
-
-    pub(crate) fn test_write_doc_spec_block(
-            expected_block: &[u8],
-            compression: compression::CompressionType,
-    ) {
-        let data_attrs = doc_spec_dataset_attributes(compression);
-        let block_in = SliceDataBlock::new(DOC_SPEC_BLOCK_DATA);
-        let mut buff: Vec<u8> = Vec::new();
-
-        <DefaultBlock as DefaultBlockWriter<i16, _, _>>::write_block(
-            &mut buff,
-            &data_attrs,
-            &block_in).expect("read_block failed");
-
-        assert_eq!(buff, expected_block);
     }
 
     pub(crate) fn test_block_compression_rw(compression: compression::CompressionType) {
@@ -823,29 +789,4 @@ pub(crate) mod tests {
         assert_eq!(block_out.get_data(), &block_data[..]);
     }
 
-    pub(crate) fn test_varlength_block_rw(compression: compression::CompressionType) {
-        let data_attrs = DatasetAttributes {
-            dimensions: smallvec![10, 10, 10],
-            block_size: smallvec![5, 5, 5],
-            data_type: DataType::INT32,
-            compression,
-        };
-        let block_data: Vec<i32> = (0..100_i32).collect();
-        let block_in = SliceDataBlock::new(&block_data);
-
-        let mut inner: Vec<u8> = Vec::new();
-
-        <DefaultBlock as DefaultBlockWriter<i32, _, _>>::write_block(
-            &mut inner,
-            &data_attrs,
-            &block_in).expect("write_block failed");
-
-        let block_out = <DefaultBlock as DefaultBlockReader<i32, _>>::read_block(
-            &inner[..],
-            &data_attrs,
-            smallvec![0, 0, 0]).expect("read_block failed");
-
-        assert_eq!(block_out.get_num_elements(), 5*5*5);
-        assert_eq!(block_out.get_data(), &block_data[..]);
-    }
 }

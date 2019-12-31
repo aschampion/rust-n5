@@ -251,26 +251,19 @@ pub trait N5NdarrayWriter : N5Writer {
             } else {
 
                 let block_opt = self.read_block(path_name, data_attrs, grid_coord.clone())?;
-
-                let (block_bb, mut block_array) = match block_opt {
+                let block_bb = data_attrs.get_block_bounds(&grid_coord);
+                let mut block_array = match block_opt {
                     Some(block) => {
-                        let block_bb = data_attrs.get_block_bounds(&grid_coord);
                         let block_array = Array::from_shape_vec(block_bb.size_ndarray_shape().f(), block.into_data())
                             .expect("TODO: block ndarray failed");
-                        (block_bb, block_array)
+                        block_array
                     },
                     None => {
                         // If no block exists, need to write from its origin.
-                        let mut block_bb = write_bb.clone();
-                        block_bb.size.iter_mut()
-                            .zip(write_bb.offset.iter())
-                            .zip(nom_block_bb.offset.iter())
-                            .for_each(|((s, o), g)| *s += *o - *g);
-                        block_bb.offset = nom_block_bb.offset.clone();
                         let block_size_usize = block_bb.size_ndarray_shape();
 
                         let block_array = Array::from_elem(&block_size_usize[..], fill_val.clone()).into_dyn();
-                        (block_bb, block_array)
+                        block_array
                     }
                 };
 
