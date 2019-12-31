@@ -3,7 +3,6 @@ use serde::{
     Serialize,
 };
 
-use crate::BlockHeader;
 use crate::VecDataBlock;
 
 
@@ -125,13 +124,9 @@ impl std::fmt::Display for DataType {
 pub trait ReflectedType: Send + Sync + Clone + Default + 'static {
     const VARIANT: DataType;
 
-    fn create_data_block(
-        header: BlockHeader,
-    ) -> VecDataBlock<Self> {
+    fn create_data_block(num_el: usize) -> VecDataBlock<Self> {
         VecDataBlock::<Self>::new(
-            header.size,
-            header.grid_position,
-            vec![Self::default(); header.num_el],
+            vec![Self::default(); num_el],
         )
     }
 }

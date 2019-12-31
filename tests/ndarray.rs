@@ -53,11 +53,9 @@ fn test_read_ndarray() {
                     }
                 }
 
-                let block_in = VecDataBlock::new(
-                    block_size.clone(),
-                    smallvec![0, u64::from(i), u64::from(j), u64::from(k)],
-                    block_data);
-                n.write_block(path_name, &data_attrs, &block_in)
+                let block_in = VecDataBlock::new(block_data);
+                let block_coord = smallvec![0, u64::from(i), u64::from(j), u64::from(k)];
+                n.write_block(path_name, &data_attrs, &block_coord, &block_in)
                     .expect("Failed to write block");
             }
         }

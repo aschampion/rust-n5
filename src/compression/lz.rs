@@ -95,36 +95,6 @@ mod tests {
     use super::*;
     use crate::compression::CompressionType;
 
-    const TEST_BLOCK_I16_LZ4: [u8; 47] = [
-        0x00, 0x00,
-        0x00, 0x03,
-        0x00, 0x00, 0x00, 0x01,
-        0x00, 0x00, 0x00, 0x02,
-        0x00, 0x00, 0x00, 0x03,
-        0x04, 0x22, 0x4d, 0x18,
-        0x64, 0x40, 0xa7, 0x0c,
-        0x00, 0x00, 0x80, 0x00,
-        0x01, 0x00, 0x02, 0x00,
-        0x03, 0x00, 0x04, 0x00,
-        0x05, 0x00, 0x06, 0x00,
-        0x00, 0x00, 0x00, 0x41,
-        0x37, 0x33, 0x08,
-    ];
-
-    #[test]
-    fn test_read_doc_spec_block() {
-        crate::tests::test_read_doc_spec_block(
-            TEST_BLOCK_I16_LZ4.as_ref(),
-            CompressionType::Lz4(Lz4Compression::default()));
-    }
-
-    #[test]
-    fn test_write_doc_spec_block() {
-        crate::tests::test_write_doc_spec_block(
-            TEST_BLOCK_I16_LZ4.as_ref(),
-            CompressionType::Lz4(Lz4Compression::default()));
-    }
-
     #[test]
     fn test_rw() {
         crate::tests::test_block_compression_rw(CompressionType::Lz4(Lz4Compression::default()));

@@ -312,6 +312,7 @@ pub trait N5Writer : N5Reader {
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
+        grid_position: &GridCoord,
         block: &B,
     ) -> Result<(), Error>;
 }
@@ -411,13 +412,14 @@ impl<S: ReadableStore + WriteableStore> N5Writer for S {
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
+        grid_position: &GridCoord,
         block: &B,
     ) -> Result<(), Error> {
 
         // TODO convert assert
         // assert!(data_attrs.in_bounds(block.get_grid_position()));
 
-        let block_path = get_block_path(path_name, block.get_grid_position());
+        let block_path = get_block_path(path_name, grid_position);
         self.set(&block_path, |writer|
             <DefaultBlock as DefaultBlockWriter<T, _, _>>::write_block(
                 writer, data_attrs, block,
@@ -544,7 +546,7 @@ pub struct BlockHeader {
 }
 
 pub trait ReinitDataBlock<T> {
-    fn reinitialize(&mut self, header: BlockHeader);
+    fn reinitialize(&mut self, num_el: usize);
 
     fn reinitialize_with<B: DataBlock<T>>(&mut self, other: &B);
 }
@@ -563,21 +565,9 @@ pub trait WriteableDataBlock {
 ///
 /// To enable custom types to be written to N5 volumes, implement this trait.
 pub trait DataBlock<T> {
-    fn get_size(&self) -> &[u32];
-
-    fn get_grid_position(&self) -> &[u64];
-
     fn get_data(&self) -> &[T];
 
     fn get_num_elements(&self) -> u32;
-
-    fn get_header(&self) -> BlockHeader {
-        BlockHeader {
-            size: self.get_size().into(),
-            grid_position: self.get_grid_position().into(),
-            num_el: self.get_num_elements() as usize,
-        }
-    }
 }
 
 /// A generic data block container wrapping any type that can be taken as a
@@ -585,8 +575,6 @@ pub trait DataBlock<T> {
 #[derive(Clone)]
 pub struct SliceDataBlock<T: ReflectedType, C> {
     data_type: PhantomData<T>,
-    size: BlockCoord,
-    grid_position: GridCoord,
     data: C,
 }
 
@@ -595,11 +583,9 @@ pub struct SliceDataBlock<T: ReflectedType, C> {
 pub type VecDataBlock<T> = SliceDataBlock<T, Vec<T>>;
 
 impl<T: ReflectedType, C> SliceDataBlock<T, C> {
-    pub fn new(size: BlockCoord, grid_position: GridCoord, data: C) -> SliceDataBlock<T, C> {
+    pub fn new(data: C) -> SliceDataBlock<T, C> {
         SliceDataBlock {
             data_type: PhantomData,
-            size,
-            grid_position,
             data,
         }
     }
@@ -610,15 +596,11 @@ impl<T: ReflectedType, C> SliceDataBlock<T, C> {
 }
 
 impl<T: ReflectedType> ReinitDataBlock<T> for VecDataBlock<T> {
-    fn reinitialize(&mut self, header: BlockHeader) {
-        self.size = header.size;
-        self.grid_position = header.grid_position;
-        self.data.resize_with(header.num_el, Default::default);
+    fn reinitialize(&mut self, num_el: usize) {
+        self.data.resize_with(num_el, Default::default);
     }
 
     fn reinitialize_with<B: DataBlock<T>>(&mut self, other: &B) {
-        self.size = other.get_size().into();
-        self.grid_position = other.get_grid_position().into();
         self.data.clear();
         self.data.extend_from_slice(other.get_data());
     }
@@ -692,14 +674,6 @@ impl<C: AsRef<[i8]>> WriteableDataBlock for SliceDataBlock<i8, C> {
 }
 
 impl<T: ReflectedType, C: AsRef<[T]>> DataBlock<T> for SliceDataBlock<T, C> {
-    fn get_size(&self) -> &[u32] {
-        &self.size
-    }
-
-    fn get_grid_position(&self) -> &[u64] {
-        &self.grid_position
-    }
-
     fn get_data(&self) -> &[T] {
         self.data.as_ref()
     }
@@ -710,32 +684,8 @@ impl<T: ReflectedType, C: AsRef<[T]>> DataBlock<T> for SliceDataBlock<T, C> {
 }
 
 
-pub trait DefaultBlockHeaderReader<R: std::io::Read> {
-    fn read_block_header(
-        buffer: &mut R,
-        grid_position: GridCoord,
-    ) -> std::io::Result<BlockHeader> {
-
-        let mode = buffer.read_u16::<BigEndian>()?;
-        let ndim = buffer.read_u16::<BigEndian>()?;
-        let mut size = smallvec![0; ndim as usize];
-        buffer.read_u32_into::<BigEndian>(&mut size)?;
-        let num_el = match mode {
-            0 => size.iter().product(),
-            1 => buffer.read_u32::<BigEndian>()?,
-            _ => return Err(Error::new(ErrorKind::InvalidData, "Unsupported block mode"))
-        };
-
-        Ok(BlockHeader {
-            size,
-            grid_position,
-            num_el: num_el as usize,
-        })
-    }
-}
-
 /// Reads blocks from rust readers.
-pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHeaderReader<R> {
+pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read> {
     fn read_block(
         mut buffer: R,
         data_attrs: &DatasetAttributes,
@@ -748,9 +698,8 @@ pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHe
                 ErrorKind::InvalidInput,
                 "Attempt to create data block for wrong type."))
         }
-        let header = Self::read_block_header(&mut buffer, grid_position)?;
-
-        let mut block = T::create_data_block(header);
+    
+        let mut block = T::create_data_block(data_attrs.get_block_num_elements());
         let mut decompressed = data_attrs.compression.decoder(buffer);
         block.read_data(&mut decompressed)?;
 
@@ -769,9 +718,8 @@ pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHe
                 ErrorKind::InvalidInput,
                 "Attempt to create data block for wrong type."))
         }
-        let header = Self::read_block_header(&mut buffer, grid_position)?;
 
-        block.reinitialize(header);
+        block.reinitialize(data_attrs.get_block_num_elements());
         let mut decompressed = data_attrs.compression.decoder(buffer);
         block.read_data(&mut decompressed)?;
 
@@ -786,18 +734,6 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T> + WriteableDa
         data_attrs: &DatasetAttributes,
         block: &B,
     ) -> std::io::Result<()> {
-        let mode: u16 = if block.get_num_elements() == block.get_size().iter().product::<u32>()
-            {0} else {1};
-        buffer.write_u16::<BigEndian>(mode)?;
-        buffer.write_u16::<BigEndian>(data_attrs.get_ndim() as u16)?;
-        for i in block.get_size() {
-            buffer.write_u32::<BigEndian>(*i)?;
-        }
-
-        if mode != 0 {
-            buffer.write_u32::<BigEndian>(block.get_num_elements())?;
-        }
-
         let mut compressor = data_attrs.compression.encoder(buffer);
         block.write_data(&mut compressor)?;
 
@@ -809,7 +745,6 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T> + WriteableDa
 // directly from trait name in Rust. Symptom of design problems with
 // `DefaultBlockReader`, etc.
 pub struct DefaultBlock;
-impl<R: std::io::Read> DefaultBlockHeaderReader<R> for DefaultBlock {}
 impl<T: ReflectedType, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock {}
 impl<T, W: std::io::Write, B: DataBlock<T> + WriteableDataBlock> DefaultBlockWriter<T, W, B> for DefaultBlock {}
 
@@ -842,8 +777,7 @@ pub(crate) mod tests {
             &data_attrs,
             smallvec![0, 0, 0]).expect("read_block failed");
 
-        assert_eq!(block.get_size(), data_attrs.get_block_size());
-        assert_eq!(block.get_grid_position(), &[0, 0, 0]);
+        assert_eq!(block.get_data().len(), data_attrs.get_block_num_elements());
         assert_eq!(block.get_data(), &DOC_SPEC_BLOCK_DATA);
     }
 
@@ -852,10 +786,7 @@ pub(crate) mod tests {
             compression: compression::CompressionType,
     ) {
         let data_attrs = doc_spec_dataset_attributes(compression);
-        let block_in = SliceDataBlock::new(
-            data_attrs.block_size.clone(),
-            smallvec![0, 0, 0],
-            DOC_SPEC_BLOCK_DATA);
+        let block_in = SliceDataBlock::new(DOC_SPEC_BLOCK_DATA);
         let mut buff: Vec<u8> = Vec::new();
 
         <DefaultBlock as DefaultBlockWriter<i16, _, _>>::write_block(
@@ -874,10 +805,7 @@ pub(crate) mod tests {
             compression,
         };
         let block_data: Vec<i32> = (0..125_i32).collect();
-        let block_in = SliceDataBlock::new(
-            data_attrs.block_size.clone(),
-            smallvec![0, 0, 0],
-            &block_data);
+        let block_in = SliceDataBlock::new(&block_data);
 
         let mut inner: Vec<u8> = Vec::new();
 
@@ -891,8 +819,7 @@ pub(crate) mod tests {
             &data_attrs,
             smallvec![0, 0, 0]).expect("read_block failed");
 
-        assert_eq!(block_out.get_size(), &[5, 5, 5]);
-        assert_eq!(block_out.get_grid_position(), &[0, 0, 0]);
+        assert_eq!(block_out.get_num_elements(), 5*5*5);
         assert_eq!(block_out.get_data(), &block_data[..]);
     }
 
@@ -904,10 +831,7 @@ pub(crate) mod tests {
             compression,
         };
         let block_data: Vec<i32> = (0..100_i32).collect();
-        let block_in = SliceDataBlock::new(
-            data_attrs.block_size.clone(),
-            smallvec![0, 0, 0],
-            &block_data);
+        let block_in = SliceDataBlock::new(&block_data);
 
         let mut inner: Vec<u8> = Vec::new();
 
@@ -921,8 +845,7 @@ pub(crate) mod tests {
             &data_attrs,
             smallvec![0, 0, 0]).expect("read_block failed");
 
-        assert_eq!(block_out.get_size(), &[5, 5, 5]);
-        assert_eq!(block_out.get_grid_position(), &[0, 0, 0]);
+        assert_eq!(block_out.get_num_elements(), 5*5*5);
         assert_eq!(block_out.get_data(), &block_data[..]);
     }
 }

@@ -104,11 +104,8 @@ fn write<T, N5>(
                 let pn = path_name.clone();
                 let da = data_attrs.clone();
                 all_jobs.push(pool.spawn_fn(move || {
-                    let block_in = SliceDataBlock::new(
-                        bs,
-                        smallvec![x, y, z],
-                        bd);
-                    ni.write_block(&pn, &da, &block_in)
+                    let block_in = SliceDataBlock::new(bd);
+                    ni.write_block(&pn, &da, &smallvec![x, y, z], &block_in)
                         .expect("Failed to write block");
                     Ok(0)
                 }));

@@ -166,11 +166,11 @@ pub trait N5NdarrayReader : N5Reader {
             let grid_pos = GridCoord::from(&coord[..]);
             let is_block = match block_buff_opt {
                 None => {
-                    block_buff_opt = self.read_block(path_name, data_attrs, grid_pos)?;
+                    block_buff_opt = self.read_block(path_name, data_attrs, grid_pos.clone())?;
                     block_buff_opt.is_some()
                 },
                 Some(ref mut block_buff) => {
-                    self.read_block_into(path_name, data_attrs, grid_pos, block_buff)?.is_some()
+                    self.read_block_into(path_name, data_attrs, grid_pos.clone(), block_buff)?.is_some()
                 }
             };
 
@@ -179,7 +179,7 @@ pub trait N5NdarrayReader : N5Reader {
 
             if let Some(ref block) = block_buff_opt {
 
-                let block_bb = block.get_bounds(data_attrs);
+                let block_bb = data_attrs.get_block_bounds(&grid_pos);
                 let mut read_bb = bbox.clone();
                 read_bb.intersect(&block_bb);
                 let arr_read_bb = read_bb.clone() - &bbox.offset;
@@ -244,9 +244,9 @@ pub trait N5NdarrayWriter : N5Writer {
                 // No need to read whether there is an extant block if it is
                 // going to be entirely overwrriten.
                 let block_vec = arr_view.t().iter().cloned().collect();
-                let block = VecDataBlock::new(write_bb.size_block(), coord.into(), block_vec);
+                let block = VecDataBlock::new(block_vec);
 
-                self.write_block(path_name, data_attrs, &block)?;
+                self.write_block(path_name, data_attrs, &coord.into(), &block)?;
 
             } else {
 
@@ -254,7 +254,7 @@ pub trait N5NdarrayWriter : N5Writer {
 
                 let (block_bb, mut block_array) = match block_opt {
                     Some(block) => {
-                        let block_bb = block.get_bounds(data_attrs);
+                        let block_bb = data_attrs.get_block_bounds(&grid_coord);
                         let block_array = Array::from_shape_vec(block_bb.size_ndarray_shape().f(), block.into_data())
                             .expect("TODO: block ndarray failed");
                         (block_bb, block_array)
@@ -281,9 +281,9 @@ pub trait N5NdarrayWriter : N5Writer {
                 block_view.assign(&arr_view);
 
                 let block_vec = block_array.t().iter().cloned().collect();
-                let block = VecDataBlock::new(block_bb.size_block(), coord.into(), block_vec);
+                let block = VecDataBlock::new(block_vec);
 
-                self.write_block(path_name, data_attrs, &block)?;
+                self.write_block(path_name, data_attrs, &coord.into(), &block)?;
             }
         }
 
@@ -335,14 +335,6 @@ impl DatasetAttributes {
             .zip(self.get_dimensions().iter())
             .for_each(|((s, o), d)| *s = cmp::min(*s + *o, *d) - *o);
         BoundingBox { offset, size }
-    }
-}
-
-impl<T: ReflectedType> VecDataBlock<T> {
-    pub fn get_bounds(&self, data_attrs: &DatasetAttributes) -> BoundingBox {
-        let mut bbox = data_attrs.get_block_bounds(&self.grid_position);
-        bbox.size = self.size.iter().cloned().map(u64::from).collect();
-        bbox
     }
 }
 

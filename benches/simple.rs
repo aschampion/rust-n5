@@ -38,10 +38,7 @@ fn test_block_compression_rw<T>(
     let rng = rand::thread_rng();
     let block_data: Vec<T> = rng.sample_iter(&Standard).take(numel).collect();
 
-    let block_in = VecDataBlock::new(
-        data_attrs.get_block_size().into(),
-        smallvec![0, 0, 0],
-        block_data.clone());
+    let block_in = VecDataBlock::new(block_data.clone());
 
     let mut inner: Vec<u8> = Vec::new();
 

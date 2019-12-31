@@ -60,42 +60,6 @@ mod tests {
     use super::*;
     use crate::compression::CompressionType;
 
-    // Example from the n5 documentation spec.
-    const TEST_BLOCK_I16_GZIP: [u8; 48] = [
-        0x00, 0x00,
-        0x00, 0x03,
-        0x00, 0x00, 0x00, 0x01,
-        0x00, 0x00, 0x00, 0x02,
-        0x00, 0x00, 0x00, 0x03,
-        0x1f, 0x8b, 0x08, 0x00,
-        0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x63, 0x60,
-        0x64, 0x60, 0x62, 0x60,
-        0x66, 0x60, 0x61, 0x60,
-        0x65, 0x60, 0x03, 0x00,
-        0xaa, 0xea, 0x6d, 0xbf,
-        0x0c, 0x00, 0x00, 0x00,
-    ];
-
-    #[test]
-    fn test_read_doc_spec_block() {
-        crate::tests::test_read_doc_spec_block(
-            TEST_BLOCK_I16_GZIP.as_ref(),
-            CompressionType::Gzip(GzipCompression::default()));
-    }
-
-    #[test]
-    fn test_write_doc_spec_block() {
-        // The compressed stream differs from Java.
-        // The difference is one byte: the operating system ID.
-        // Java uses 0 (FAT) while flate2 usese 255 (unknown).
-        let mut fudge_test_block = TEST_BLOCK_I16_GZIP.clone();
-        fudge_test_block[25] = 255;
-        crate::tests::test_write_doc_spec_block(
-            &fudge_test_block,
-            CompressionType::Gzip(GzipCompression::default()));
-    }
-
     #[test]
     fn test_rw() {
         crate::tests::test_block_compression_rw(CompressionType::Gzip(GzipCompression::default()));

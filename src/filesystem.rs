@@ -306,14 +306,11 @@ mod tests {
             crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
         );
         let block_data: Vec<i32> = (0..125_i32).collect();
-        let block_in = crate::SliceDataBlock::new(
-            data_attrs.block_size.clone(),
-            smallvec![0, 0, 0],
-            &block_data);
+        let block_in = crate::SliceDataBlock::new(&block_data);
 
         create.create_dataset("foo/bar", &data_attrs)
             .expect("Failed to create dataset");
-        create.write_block("foo/bar", &data_attrs, &block_in)
+        create.write_block("foo/bar", &data_attrs, &smallvec![0, 0, 0], &block_in)
             .expect("Failed to write block");
 
         let read = N5Filesystem::open(path_str)

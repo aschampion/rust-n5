@@ -26,16 +26,13 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
     let rng = rand::thread_rng();
     let block_data: Vec<T> = rng.sample_iter(&Standard).take(numel).collect();
 
-    let block_in = SliceDataBlock::new(
-        block_size,
-        smallvec![0; dim],
-        block_data);
+    let block_in = SliceDataBlock::new(block_data);
 
     let path_name = "test/dataset/group";
 
     n.create_dataset(path_name, &data_attrs)
         .expect("Failed to create dataset");
-    n.write_block(path_name, &data_attrs, &block_in)
+    n.write_block(path_name, &data_attrs, &smallvec![0; dim], &block_in)
         .expect("Failed to write block");
 
     let block_data = block_in.into_data();
@@ -45,10 +42,7 @@ fn test_read_write<T, N5: N5Reader + N5Writer>(
         .expect("Block is empty");
     assert_eq!(block_out.get_data(), &block_data[..]);
 
-    let mut into_block = VecDataBlock::new(
-        smallvec![0; dim],
-        smallvec![0; dim],
-        vec![]);
+    let mut into_block = VecDataBlock::new(vec![]);
     n.read_block_into(path_name, &data_attrs, smallvec![0; dim], &mut into_block)
         .expect("Failed to read block")
         .expect("Block is empty");
