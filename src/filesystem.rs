@@ -199,7 +199,21 @@ impl WriteableStore for N5Filesystem {
     }
 
     fn delete(&self, key: &str) -> Result<()> {
-        todo!();
+        let path = self.base_path.join(key);
+
+        for entry in WalkDir::new(path).contents_first(true) {
+            let entry = entry?;
+
+            if entry.file_type().is_dir() {
+                fs::remove_dir(entry.path())?;
+            } else {
+                let file = File::open(entry.path())?;
+                file.lock_exclusive()?;
+                fs::remove_file(entry.path())?;
+            }
+        }
+
+        Ok(())
     }
 
 }

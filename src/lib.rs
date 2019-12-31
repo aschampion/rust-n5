@@ -196,7 +196,24 @@ impl<S: ReadableStore> N5Reader for S {
         grid_position: GridCoord,
         block: &mut B,
     ) -> Result<Option<()>, Error> {
-        todo!()
+        // TODO convert asserts to errors
+        assert!(data_attrs.in_bounds(&grid_position));
+
+        // Construct block path string
+        let block_path = get_block_path(path_name, &grid_position);
+
+        // Get key from store
+        let value_reader = ReadableStore::get(self, &block_path)?;
+
+        // Read value into container
+        value_reader.map(|reader|
+            <crate::DefaultBlock as DefaultBlockReader<T, _>>::read_block_into(
+                reader,
+                data_attrs,
+                grid_position,
+                block,
+            ))
+            .transpose()
     }
 
     fn block_metadata(
@@ -387,7 +404,7 @@ impl<S: ReadableStore + WriteableStore> N5Writer for S {
         &self,
         path_name: &str,
     ) -> Result<(), Error> {
-        todo!()
+        self.delete(path_name)
     }
 
     fn write_block<T, B: DataBlock<T> + WriteableDataBlock>(
