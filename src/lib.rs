@@ -86,11 +86,11 @@ pub trait N5Reader {
     fn get_dataset_attributes(&self, path_name: &str) -> Result<DatasetAttributes, Error>;
 
     /// Test whether a group or dataset exists.
-    fn exists(&self, path_name: &str) -> bool;
+    fn exists(&self, path_name: &str) -> Result<bool, Error>;
 
     /// Test whether a dataset exists.
-    fn dataset_exists(&self, path_name: &str) -> bool {
-        self.exists(path_name) && self.get_dataset_attributes(path_name).is_ok()
+    fn dataset_exists(&self, path_name: &str) -> Result<bool, Error> {
+        Ok(self.exists(path_name)? && self.get_dataset_attributes(path_name).is_ok())
     }
 
     /// Get a URI string for a data block.

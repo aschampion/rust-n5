@@ -63,7 +63,7 @@ impl N5Filesystem {
             base_path: PathBuf::from(base_path),
         };
 
-        if reader.exists("") {
+        if reader.exists("")? {
             let version = reader.get_version()?;
 
             if !is_version_compatible(&crate::VERSION, &version) {
@@ -94,7 +94,7 @@ impl N5Filesystem {
     }
 
     pub fn get_attributes(&self, path_name: &str) -> Result<Value> {
-        if self.exists(path_name) {
+        if self.exists(path_name)? {
             let attr_path = self.base_path.join(path_name).join(ATTRIBUTES_FILE);
 
             if attr_path.exists() && attr_path.is_file() {
@@ -175,9 +175,9 @@ impl N5Reader for N5Filesystem {
         Ok(serde_json::from_reader(reader)?)
     }
 
-    fn exists(&self, path_name: &str) -> bool {
+    fn exists(&self, path_name: &str) -> Result<bool> {
         let target = self.base_path.join(path_name);
-        target.is_dir()
+        Ok(target.is_dir())
     }
 
     fn get_block_uri(&self, path_name: &str, grid_position: &[u64]) -> Result<String> {
