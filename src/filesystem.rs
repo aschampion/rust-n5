@@ -28,6 +28,7 @@ use serde_json::{
 use walkdir::WalkDir;
 
 use crate::{
+    is_version_compatible,
     DataBlock,
     DataBlockMetadata,
     DatasetAttributes,
@@ -65,7 +66,7 @@ impl N5Filesystem {
         if reader.exists("") {
             let version = reader.get_version()?;
 
-            if !crate::VERSION.is_compatible(&version) {
+            if !is_version_compatible(&crate::VERSION, &version) {
                 return Err(Error::new(ErrorKind::Other, "TODO: Incompatible version"))
             }
         }
@@ -83,7 +84,7 @@ impl N5Filesystem {
 
         fs::create_dir_all(base_path)?;
 
-        if reader.get_version().map(|v| !v.is_compatible(&crate::VERSION)).unwrap_or(false) {
+        if reader.get_version().map(|v| !is_version_compatible(&crate::VERSION, &v)).unwrap_or(false) {
             return Err(Error::new(ErrorKind::Other, "TODO: Incompatible version"))
         } else {
             reader.set_attribute("", crate::VERSION_ATTRIBUTE_KEY.to_owned(), crate::VERSION.to_string())?;

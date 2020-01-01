@@ -44,9 +44,8 @@ pub mod filesystem;
 #[cfg(feature = "use_ndarray")]
 pub mod ndarray;
 pub mod prelude;
-pub mod version;
 
-pub use crate::version::Version;
+pub use semver::Version;
 
 
 const COORD_SMALLVEC_SIZE: usize = 6;
@@ -55,7 +54,18 @@ pub type BlockCoord = CoordVec<u32>;
 pub type GridCoord = CoordVec<u64>;
 
 
-pub use version::VERSION;
+/// Version of the Java N5 spec supported by this library.
+pub const VERSION: Version = Version {
+    major: 2,
+    minor: 1,
+    patch: 3,
+    pre: Vec::new(),
+    build: Vec::new(),
+};
+
+pub fn is_version_compatible(s: &Version, other: &Version) -> bool {
+    other.major <= s.major
+}
 
 /// Key name for the version attribute in the container root.
 pub const VERSION_ATTRIBUTE_KEY: &str = "n5";
