@@ -316,7 +316,7 @@ impl N5Writer for N5Filesystem {
 
         merge(&mut merged, &new);
 
-        if new != existing {
+        if merged != existing {
             let writer = BufWriter::new(file);
             serde_json::to_writer(writer, &merged)?;
         }
