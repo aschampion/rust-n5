@@ -308,7 +308,6 @@ impl N5Writer for N5Filesystem {
 
         let mut existing_buf = String::new();
         file.read_to_string(&mut existing_buf)?;
-        file.seek(SeekFrom::Start(0))?;
         let existing = serde_json::from_str(&existing_buf).unwrap_or_else(|_| json!({}));
         let mut merged = existing.clone();
 
@@ -317,6 +316,8 @@ impl N5Writer for N5Filesystem {
         merge(&mut merged, &new);
 
         if merged != existing {
+            file.set_len(0)?;
+            file.seek(SeekFrom::Start(0))?;
             let writer = BufWriter::new(file);
             serde_json::to_writer(writer, &merged)?;
         }

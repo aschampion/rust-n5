@@ -160,6 +160,47 @@ pub(crate) fn create_dataset<N: N5Testable>() {
     assert_eq!(read.get_dataset_attributes("foo/bar").unwrap(), data_attrs);
 }
 
+pub(crate) fn attributes_rw<N: N5Testable>() {
+    let wrapper = N::temp_new_rw();
+    let create = wrapper.as_ref();
+    let group = "foo";
+    create.create_group(group)
+        .expect("Failed to create group");
+
+    // Currently reading attributes that have not been set is an error.
+    // Whether this should be the case is still open for decision.
+    assert!(create.list_attributes(group).is_err());
+
+    let attrs_1 = json!({
+        "foo": "bar",
+        "baz": [1, 2, 3],
+    }).as_object().unwrap().clone();
+    create.set_attributes(group, attrs_1.clone()).expect("Failed to set attributes");
+    assert_eq!(
+        create.list_attributes(group).unwrap(),
+        serde_json::Value::Object(attrs_1));
+
+    let attrs_2 = json!({
+        "baz": [4, 5, 6],
+    }).as_object().unwrap().clone();
+    create.set_attributes(group, attrs_2).expect("Failed to set attributes");
+    assert_eq!(
+        create.list_attributes(group).unwrap(),
+        json!({
+            "foo": "bar",
+            "baz": [4, 5, 6],
+        }));
+
+    let attrs_3 = json!({
+        "foo": null,
+        "baz": null,
+    }).as_object().unwrap().clone();
+    create.set_attributes(group, attrs_3.clone()).expect("Failed to set attributes");
+    assert_eq!(
+        create.list_attributes(group).unwrap(),
+        serde_json::Value::Object(attrs_3));
+}
+
 pub(crate) fn create_block_rw<N: N5Testable>() {
     let wrapper = N::temp_new_rw();
     let create = wrapper.as_ref();
@@ -202,6 +243,11 @@ macro_rules! test_backend {
         #[test]
         fn create_dataset() {
             $crate::tests::create_dataset::<$backend>()
+        }
+
+        #[test]
+        fn attributes_rw() {
+            $crate::tests::attributes_rw::<$backend>()
         }
 
         #[test]
