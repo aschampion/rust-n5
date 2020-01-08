@@ -1,0 +1,212 @@
+use super::*;
+use std::io::Cursor;
+
+use serde_json::json;
+
+const DOC_SPEC_BLOCK_DATA: [i16; 6] = [1, 2, 3, 4, 5, 6];
+
+pub(crate) trait N5Testable: N5Reader + N5Writer {
+    type Wrapper: AsRef<Self>;
+
+    fn temp_new_rw() -> Self::Wrapper;
+
+    fn open_reader(&self) -> Self;
+}
+
+/// Wrapper type for holding a context from dropping during the lifetime of an
+/// N5 backend. This is useful for things like tempdirs.
+pub struct ContextWrapper<C, N: N5Reader + N5Writer> {
+    pub context: C,
+    pub n5: N,
+}
+
+impl<C, N: N5Reader + N5Writer> AsRef<N> for ContextWrapper<C, N> {
+    fn as_ref(&self) -> &N {
+        &self.n5
+    }
+}
+
+fn doc_spec_dataset_attributes(compression: compression::CompressionType) -> DatasetAttributes {
+    DatasetAttributes {
+        dimensions: smallvec![5, 6, 7],
+        block_size: smallvec![1, 2, 3],
+        data_type: DataType::INT16,
+        compression,
+    }
+}
+
+pub(crate) fn test_read_doc_spec_block(
+        block: &[u8],
+        compression: compression::CompressionType,
+) {
+    let buff = Cursor::new(block);
+    let data_attrs = doc_spec_dataset_attributes(compression);
+
+    let block = <DefaultBlock as DefaultBlockReader<i16, std::io::Cursor<&[u8]>>>::read_block(
+        buff,
+        &data_attrs,
+        smallvec![0, 0, 0]).expect("read_block failed");
+
+    assert_eq!(block.get_size(), data_attrs.get_block_size());
+    assert_eq!(block.get_grid_position(), &[0, 0, 0]);
+    assert_eq!(block.get_data(), &DOC_SPEC_BLOCK_DATA);
+}
+
+pub(crate) fn test_write_doc_spec_block(
+        expected_block: &[u8],
+        compression: compression::CompressionType,
+) {
+    let data_attrs = doc_spec_dataset_attributes(compression);
+    let block_in = SliceDataBlock::new(
+        data_attrs.block_size.clone(),
+        smallvec![0, 0, 0],
+        DOC_SPEC_BLOCK_DATA);
+    let mut buff: Vec<u8> = Vec::new();
+
+    <DefaultBlock as DefaultBlockWriter<i16, _, _>>::write_block(
+        &mut buff,
+        &data_attrs,
+        &block_in).expect("read_block failed");
+
+    assert_eq!(buff, expected_block);
+}
+
+pub(crate) fn test_block_compression_rw(compression: compression::CompressionType) {
+    let data_attrs = DatasetAttributes {
+        dimensions: smallvec![10, 10, 10],
+        block_size: smallvec![5, 5, 5],
+        data_type: DataType::INT32,
+        compression,
+    };
+    let block_data: Vec<i32> = (0..125_i32).collect();
+    let block_in = SliceDataBlock::new(
+        data_attrs.block_size.clone(),
+        smallvec![0, 0, 0],
+        &block_data);
+
+    let mut inner: Vec<u8> = Vec::new();
+
+    <DefaultBlock as DefaultBlockWriter<i32, _, _>>::write_block(
+        &mut inner,
+        &data_attrs,
+        &block_in).expect("write_block failed");
+
+    let block_out = <DefaultBlock as DefaultBlockReader<i32, _>>::read_block(
+        &inner[..],
+        &data_attrs,
+        smallvec![0, 0, 0]).expect("read_block failed");
+
+    assert_eq!(block_out.get_size(), &[5, 5, 5]);
+    assert_eq!(block_out.get_grid_position(), &[0, 0, 0]);
+    assert_eq!(block_out.get_data(), &block_data[..]);
+}
+
+pub(crate) fn test_varlength_block_rw(compression: compression::CompressionType) {
+    let data_attrs = DatasetAttributes {
+        dimensions: smallvec![10, 10, 10],
+        block_size: smallvec![5, 5, 5],
+        data_type: DataType::INT32,
+        compression,
+    };
+    let block_data: Vec<i32> = (0..100_i32).collect();
+    let block_in = SliceDataBlock::new(
+        data_attrs.block_size.clone(),
+        smallvec![0, 0, 0],
+        &block_data);
+
+    let mut inner: Vec<u8> = Vec::new();
+
+    <DefaultBlock as DefaultBlockWriter<i32, _, _>>::write_block(
+        &mut inner,
+        &data_attrs,
+        &block_in).expect("write_block failed");
+
+    let block_out = <DefaultBlock as DefaultBlockReader<i32, _>>::read_block(
+        &inner[..],
+        &data_attrs,
+        smallvec![0, 0, 0]).expect("read_block failed");
+
+    assert_eq!(block_out.get_size(), &[5, 5, 5]);
+    assert_eq!(block_out.get_grid_position(), &[0, 0, 0]);
+    assert_eq!(block_out.get_data(), &block_data[..]);
+}
+
+pub(crate) fn create_backend<N: N5Testable>() {
+    let wrapper = N::temp_new_rw();
+    let create = wrapper.as_ref();
+    create.set_attribute("", "foo".to_owned(), "bar")
+        .expect("Failed to set attribute");
+
+    let read = create.open_reader();
+
+    assert_eq!(read.get_version().expect("Cannot read version"), crate::VERSION);
+    assert_eq!(read.list_attributes("").unwrap()["foo"], "bar");
+}
+
+pub(crate) fn create_dataset<N: N5Testable>() {
+    let wrapper = N::temp_new_rw();
+    let create = wrapper.as_ref();
+    let data_attrs = DatasetAttributes::new(
+        smallvec![10, 10, 10],
+        smallvec![5, 5, 5],
+        DataType::INT32,
+        crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
+    );
+    create.create_dataset("foo/bar", &data_attrs)
+        .expect("Failed to create dataset");
+
+    let read = create.open_reader();
+
+    assert_eq!(read.get_dataset_attributes("foo/bar").unwrap(), data_attrs);
+}
+
+pub(crate) fn create_block_rw<N: N5Testable>() {
+    let wrapper = N::temp_new_rw();
+    let create = wrapper.as_ref();
+    let data_attrs = DatasetAttributes::new(
+        smallvec![10, 10, 10],
+        smallvec![5, 5, 5],
+        DataType::INT32,
+        crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
+    );
+    let block_data: Vec<i32> = (0..125_i32).collect();
+    let block_in = crate::SliceDataBlock::new(
+        data_attrs.block_size.clone(),
+        smallvec![0, 0, 0],
+        &block_data);
+
+    create.create_dataset("foo/bar", &data_attrs)
+        .expect("Failed to create dataset");
+    create.write_block("foo/bar", &data_attrs, &block_in)
+        .expect("Failed to write block");
+
+    let read = create.open_reader();
+    let block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 0])
+        .expect("Failed to read block")
+        .expect("Block is empty");
+    let missing_block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 1])
+        .expect("Failed to read block");
+
+    assert_eq!(block_out.get_data(), &block_data[..]);
+    assert!(missing_block_out.is_none());
+}
+
+#[macro_export]
+macro_rules! test_backend {
+    ($backend:ty) => {
+        #[test]
+        fn create_backend() {
+            $crate::tests::create_backend::<$backend>()
+        }
+
+        #[test]
+        fn create_dataset() {
+            $crate::tests::create_dataset::<$backend>()
+        }
+
+        #[test]
+        fn create_block_rw() {
+            $crate::tests::create_block_rw::<$backend>()
+        }
+    };
+}

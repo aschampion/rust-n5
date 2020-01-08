@@ -377,55 +377,38 @@ impl N5Writer for N5Filesystem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DataType;
+    use crate::test_backend;
+    use crate::tests::{ContextWrapper, N5Testable};
     use tempdir::TempDir;
 
-    #[test]
-    fn create_filesystem() {
-        let dir = TempDir::new("rust_n5_tests").unwrap();
-        let path_str = dir.path().to_str().unwrap();
+    impl crate::tests::N5Testable for N5Filesystem {
+        type Wrapper = ContextWrapper<TempDir, N5Filesystem>;
 
-        let create = N5Filesystem::open_or_create(path_str)
-            .expect("Failed to create N5 filesystem");
-        create.set_attribute("", "foo".to_owned(), "bar")
-            .expect("Failed to set attribute");
+        fn temp_new_rw() -> Self::Wrapper {
+            let dir = TempDir::new("rust_n5_tests").unwrap();
+            let path_str = dir.path().to_str().unwrap();
+            let n5 = N5Filesystem::open_or_create(path_str)
+                .expect("Failed to create N5 filesystem");
 
-        let read = N5Filesystem::open(path_str)
-            .expect("Failed to open N5 filesystem");
+            ContextWrapper {
+                context: dir,
+                n5,
+            }
+        }
 
-        assert_eq!(read.get_version().expect("Cannot read version"), crate::VERSION);
-        assert_eq!(read.list_attributes("").unwrap()["foo"], "bar");
+        fn open_reader(&self) -> Self {
+            N5Filesystem::open(
+                &self.base_path.clone().into_os_string().into_string().unwrap()
+            ).unwrap()
+        }
     }
 
-    #[test]
-    fn create_dataset() {
-        let dir = TempDir::new("rust_n5_tests").unwrap();
-        let path_str = dir.path().to_str().unwrap();
-
-        let create = N5Filesystem::open_or_create(path_str)
-            .expect("Failed to create N5 filesystem");
-        let data_attrs = DatasetAttributes::new(
-            smallvec![10, 10, 10],
-            smallvec![5, 5, 5],
-            DataType::INT32,
-            crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
-        );
-        create.create_dataset("foo/bar", &data_attrs)
-            .expect("Failed to create dataset");
-
-        let read = N5Filesystem::open(path_str)
-            .expect("Failed to open N5 filesystem");
-
-        assert_eq!(read.get_dataset_attributes("foo/bar").unwrap(), data_attrs);
-    }
+    test_backend!(N5Filesystem);
 
     #[test]
     fn reject_exterior_paths() {
-        let dir = TempDir::new("rust_n5_tests").unwrap();
-        let path_str = dir.path().to_str().unwrap();
-
-        let create = N5Filesystem::open_or_create(path_str)
-            .expect("Failed to create N5 filesystem");
+        let wrapper = N5Filesystem::temp_new_rw();
+        let create = wrapper.as_ref();
 
         assert!(create.get_path("/").is_err());
         assert!(create.get_path("..").is_err());
@@ -442,41 +425,5 @@ mod tests {
             .expect("Failed to create N5 filesystem");
         let uri = create.get_block_uri("foo/bar", &vec![1, 2, 3]).unwrap();
         assert_eq!(uri, format!("file://{}/foo/bar/1/2/3", path_str));
-    }
-
-    #[test]
-    fn create_block_rw() {
-        let dir = TempDir::new("rust_n5_tests").unwrap();
-        let path_str = dir.path().to_str().unwrap();
-
-        let create = N5Filesystem::open_or_create(path_str)
-            .expect("Failed to create N5 filesystem");
-        let data_attrs = DatasetAttributes::new(
-            smallvec![10, 10, 10],
-            smallvec![5, 5, 5],
-            DataType::INT32,
-            crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
-        );
-        let block_data: Vec<i32> = (0..125_i32).collect();
-        let block_in = crate::SliceDataBlock::new(
-            data_attrs.block_size.clone(),
-            smallvec![0, 0, 0],
-            &block_data);
-
-        create.create_dataset("foo/bar", &data_attrs)
-            .expect("Failed to create dataset");
-        create.write_block("foo/bar", &data_attrs, &block_in)
-            .expect("Failed to write block");
-
-        let read = N5Filesystem::open(path_str)
-            .expect("Failed to open N5 filesystem");
-        let block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 0])
-            .expect("Failed to read block")
-            .expect("Block is empty");
-        let missing_block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 1])
-            .expect("Failed to read block");
-
-        assert_eq!(block_out.get_data(), &block_data[..]);
-        assert!(missing_block_out.is_none());
     }
 }
