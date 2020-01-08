@@ -366,6 +366,8 @@ impl N5Writer for N5Filesystem {
             .create(true)
             .open(path)?;
         file.lock_exclusive()?;
+        // Truncate after the lock is acquired, rather than on opening.
+        file.set_len(0)?;
 
         let buffer = BufWriter::new(file);
         <crate::DefaultBlock as DefaultBlockWriter<T, _, _>>::write_block(
@@ -426,5 +428,56 @@ mod tests {
             .expect("Failed to create N5 filesystem");
         let uri = create.get_block_uri("foo/bar", &vec![1, 2, 3]).unwrap();
         assert_eq!(uri, format!("file://{}/foo/bar/1/2/3", path_str));
+    }
+
+    #[test]
+    pub(crate) fn short_block_truncation() {
+        let wrapper = N5Filesystem::temp_new_rw();
+        let create = wrapper.as_ref();
+        let data_attrs = DatasetAttributes::new(
+            smallvec![10, 10, 10],
+            smallvec![5, 5, 5],
+            crate::DataType::INT32,
+            crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
+        );
+        let block_data: Vec<i32> = (0..125_i32).collect();
+        let block_in = crate::SliceDataBlock::new(
+            data_attrs.block_size.clone(),
+            smallvec![0, 0, 0],
+            &block_data);
+
+        create.create_dataset("foo/bar", &data_attrs)
+            .expect("Failed to create dataset");
+        create.write_block("foo/bar", &data_attrs, &block_in)
+            .expect("Failed to write block");
+
+        let read = create.open_reader();
+        let block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 0])
+            .expect("Failed to read block")
+            .expect("Block is empty");
+        let missing_block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 1])
+            .expect("Failed to read block");
+
+        assert_eq!(block_out.get_data(), &block_data[..]);
+        assert!(missing_block_out.is_none());
+
+        // Shorten data (this still will not catch trailing data less than the length).
+        let block_data: Vec<i32> = (0..10_i32).collect();
+        let block_in = crate::SliceDataBlock::new(
+            data_attrs.block_size.clone(),
+            smallvec![0, 0, 0],
+            &block_data);
+        create.write_block("foo/bar", &data_attrs, &block_in)
+            .expect("Failed to write block");
+
+        let block_file = create.get_data_block_path("foo/bar", &[0, 0, 0]).unwrap();
+        let file = File::open(block_file).unwrap();
+        let metadata = file.metadata().unwrap();
+
+        let header_len = 2 * std::mem::size_of::<u16>() + 4 * std::mem::size_of::<u32>();
+        assert_eq!(
+            metadata.len(),
+            (header_len + block_data.len() * std::mem::size_of::<i32>()) as u64);
+
     }
 }

@@ -230,6 +230,21 @@ pub(crate) fn create_block_rw<N: N5Testable>() {
 
     assert_eq!(block_out.get_data(), &block_data[..]);
     assert!(missing_block_out.is_none());
+
+    // Shorten data (this still will not catch trailing data less than the length).
+    let block_data: Vec<i32> = (0..10_i32).collect();
+    let block_in = crate::SliceDataBlock::new(
+        data_attrs.block_size.clone(),
+        smallvec![0, 0, 0],
+        &block_data);
+    create.write_block("foo/bar", &data_attrs, &block_in)
+        .expect("Failed to write block");
+    let block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 0])
+        .expect("Failed to read block")
+        .expect("Block is empty");
+
+    assert_eq!(block_out.get_data(), &block_data[..]);
+
 }
 
 #[macro_export]
