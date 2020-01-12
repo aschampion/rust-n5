@@ -244,7 +244,44 @@ pub(crate) fn create_block_rw<N: N5Testable>() {
         .expect("Block is empty");
 
     assert_eq!(block_out.get_data(), &block_data[..]);
+}
 
+pub(crate) fn delete_block<N: N5Testable>() {
+    let wrapper = N::temp_new_rw();
+    let create = wrapper.as_ref();
+    let data_attrs = DatasetAttributes::new(
+        smallvec![10, 10, 10],
+        smallvec![5, 5, 5],
+        DataType::INT32,
+        crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
+    );
+
+    let coord_a = smallvec![1, 2, 3];
+    let coord_b: GridCoord = smallvec![1, 2, 4];
+
+    let dataset = "foo/bar";
+    let block_data: Vec<i32> = (0..125_i32).collect();
+    let block_in = crate::SliceDataBlock::new(
+        data_attrs.block_size.clone(),
+        coord_a.clone(),
+        &block_data);
+
+    create.create_dataset(dataset, &data_attrs)
+        .expect("Failed to create dataset");
+    create.write_block(dataset, &data_attrs, &block_in)
+        .expect("Failed to write block");
+
+    assert!(create.read_block::<i32>(dataset, &data_attrs, coord_a.clone())
+        .expect("Failed to read block")
+        .is_some());
+
+    assert!(create.delete_block(dataset, &coord_a).unwrap());
+    assert!(create.delete_block(dataset, &coord_a).unwrap());
+    assert!(create.delete_block(dataset, &coord_b).unwrap());
+
+    assert!(create.read_block::<i32>(dataset, &data_attrs, coord_a.clone())
+        .expect("Failed to read block")
+        .is_none());
 }
 
 #[macro_export]
@@ -268,6 +305,11 @@ macro_rules! test_backend {
         #[test]
         fn create_block_rw() {
             $crate::tests::create_block_rw::<$backend>()
+        }
+
+        #[test]
+        fn delete_block() {
+            $crate::tests::delete_block::<$backend>()
         }
     };
 }

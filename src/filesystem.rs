@@ -376,6 +376,24 @@ impl N5Writer for N5Filesystem {
                 data_attrs,
                 block)
     }
+
+    fn delete_block(
+        &self,
+        path_name: &str,
+        grid_position: &[u64],
+    ) -> Result<bool> {
+        let path = self.get_data_block_path(path_name, grid_position)?;
+
+        if path.exists() {
+            let file = fs::OpenOptions::new()
+                .read(true)
+                .open(&path)?;
+            file.lock_exclusive()?;
+            fs::remove_file(&path)?;
+        }
+
+        Ok(!path.exists())
+    }
 }
 
 #[cfg(test)]

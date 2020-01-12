@@ -206,6 +206,16 @@ pub trait N5Writer : N5Reader {
         data_attrs: &DatasetAttributes,
         block: &B,
     ) -> Result<(), Error>;
+
+    /// Delete a block from a dataset.
+    ///
+    /// Returns `true` if the block does not exist on the backend at the
+    /// completion of the call.
+    fn delete_block(
+        &self,
+        path_name: &str,
+        grid_position: &[u64],
+    ) -> Result<bool, Error>;
 }
 
 
