@@ -288,6 +288,22 @@ impl DatasetAttributes {
             .collect()
     }
 
+    /// Get the total number of blocks.
+    /// ```
+    /// use n5::prelude::*;
+    /// use n5::smallvec::smallvec;
+    /// let attrs = DatasetAttributes::new(
+    ///     smallvec![50, 40, 30],
+    ///     smallvec![10, 10, 10],
+    ///     DataType::UINT8,
+    ///     n5::compression::CompressionType::default(),
+    /// );
+    /// assert_eq!(attrs.get_num_blocks(), 60);
+    /// ```
+    pub fn get_num_blocks(&self) -> u64 {
+        self.get_grid_extent().iter().product()
+    }
+
     /// Check whether a block grid position is in the bounds of this dataset.
     /// ```
     /// use n5::prelude::*;
