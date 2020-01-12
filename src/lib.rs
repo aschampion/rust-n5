@@ -76,9 +76,10 @@ pub const VERSION_ATTRIBUTE_KEY: &str = "n5";
 
 #[derive(Clone, Debug)]
 pub struct DataBlockMetadata {
-    pub created: SystemTime,
-    pub accessed: SystemTime,
-    pub modified: SystemTime,
+    pub created: Option<SystemTime>,
+    pub accessed: Option<SystemTime>,
+    pub modified: Option<SystemTime>,
+    pub size: Option<u64>,
 }
 
 /// Non-mutating operations on N5 containers.

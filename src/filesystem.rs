@@ -242,9 +242,10 @@ impl N5Reader for N5Filesystem {
         if block_file.is_file() {
             let metadata = std::fs::metadata(block_file)?;
             Ok(Some(DataBlockMetadata {
-                created: metadata.created()?,
-                accessed: metadata.accessed()?,
-                modified: metadata.modified()?,
+                created: metadata.created().ok(),
+                accessed: metadata.accessed().ok(),
+                modified: metadata.modified().ok(),
+                size: Some(metadata.len()),
             }))
         } else {
             Ok(None)
