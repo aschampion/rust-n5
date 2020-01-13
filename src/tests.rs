@@ -172,7 +172,7 @@ pub(crate) fn attributes_rw<N: N5Testable>() {
     assert!(create.list_attributes(group).is_err());
 
     let attrs_1 = json!({
-        "foo": "bar",
+        "foo": {"bar": 42},
         "baz": [1, 2, 3],
     }).as_object().unwrap().clone();
     create.set_attributes(group, attrs_1.clone()).expect("Failed to set attributes");
@@ -187,7 +187,19 @@ pub(crate) fn attributes_rw<N: N5Testable>() {
     assert_eq!(
         create.list_attributes(group).unwrap(),
         json!({
-            "foo": "bar",
+            "foo": {"bar": 42},
+            "baz": [4, 5, 6],
+        }));
+
+    // Test that key merging is at top-level only.
+    let attrs_2 = json!({
+        "foo": {"moo": 7},
+    }).as_object().unwrap().clone();
+    create.set_attributes(group, attrs_2).expect("Failed to set attributes");
+    assert_eq!(
+        create.list_attributes(group).unwrap(),
+        json!({
+            "foo": {"moo": 7},
             "baz": [4, 5, 6],
         }));
 

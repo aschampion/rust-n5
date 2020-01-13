@@ -283,17 +283,15 @@ impl N5Lister for N5Filesystem {
     }
 }
 
-// From: https://github.com/serde-rs/json/issues/377
-// TODO: Could be much better.
-fn merge(a: &mut Value, b: &Value) {
-    match (a, b) {
-        (&mut Value::Object(ref mut a), &Value::Object(ref b)) => {
+fn merge_top_level(a: &mut Value, b: serde_json::Map<String, Value>) {
+    match a {
+        &mut Value::Object(ref mut a) => {
             for (k, v) in b {
-                merge(a.entry(k.clone()).or_insert(Value::Null), v);
+                a.insert(k, v);
             }
         }
-        (a, b) => {
-            *a = b.clone();
+        a => {
+            *a = b.into();
         }
     }
 }
@@ -316,9 +314,7 @@ impl N5Writer for N5Filesystem {
         let existing = serde_json::from_str(&existing_buf).unwrap_or_else(|_| json!({}));
         let mut merged = existing.clone();
 
-        let new: Value = attributes.into();
-
-        merge(&mut merged, &new);
+        merge_top_level(&mut merged, attributes);
 
         if merged != existing {
             file.set_len(0)?;
