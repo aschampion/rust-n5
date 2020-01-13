@@ -17,6 +17,7 @@ pub use crate::{
     DataBlockMetadata,
     DataType,
     GridCoord,
+    N5Lister,
     N5Reader,
     N5Writer,
     ReflectedType,

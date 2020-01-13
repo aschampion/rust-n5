@@ -132,11 +132,13 @@ pub trait N5Reader {
         grid_position: &[u64],
     ) -> Result<Option<DataBlockMetadata>, Error>;
 
-    /// List all groups (including datasets) in a group.
-    fn list(&self, path_name: &str) -> Result<Vec<String>, Error>;
-
     /// List all attributes of a group.
     fn list_attributes(&self, path_name: &str) -> Result<serde_json::Value, Error>;
+}
+
+pub trait N5Lister : N5Reader {
+    /// List all groups (including datasets) in a group.
+    fn list(&self, path_name: &str) -> Result<Vec<String>, Error>;
 }
 
 /// Mutating operations on N5 containers.

@@ -35,6 +35,7 @@ use crate::{
     DefaultBlockReader,
     DefaultBlockWriter,
     GridCoord,
+    N5Lister,
     N5Reader,
     N5Writer,
     ReadableDataBlock,
@@ -252,6 +253,17 @@ impl N5Reader for N5Filesystem {
         }
     }
 
+    // TODO: dupe with get_attributes w/ different empty behaviors
+    fn list_attributes(&self, path_name: &str) -> Result<Value> {
+        let attr_path = self.get_attributes_path(path_name)?;
+        let file = File::open(attr_path)?;
+        file.lock_shared()?;
+        let reader = BufReader::new(file);
+        Ok(serde_json::from_reader(reader)?)
+    }
+}
+
+impl N5Lister for N5Filesystem {
     fn list(&self, path_name: &str) -> Result<Vec<String>> {
         // TODO: shouldn't do this in a closure to not equivocate errors with Nones.
         Ok(fs::read_dir(self.get_path(path_name)?)?
@@ -266,16 +278,8 @@ impl N5Reader for N5Filesystem {
                     None
                 }
             })
-            .collect())
-    }
-
-    // TODO: dupe with get_attributes w/ different empty behaviors
-    fn list_attributes(&self, path_name: &str) -> Result<Value> {
-        let attr_path = self.get_attributes_path(path_name)?;
-        let file = File::open(attr_path)?;
-        file.lock_shared()?;
-        let reader = BufReader::new(file);
-        Ok(serde_json::from_reader(reader)?)
+            .collect()
+        )
     }
 }
 
