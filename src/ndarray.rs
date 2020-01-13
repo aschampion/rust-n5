@@ -209,17 +209,19 @@ impl<T: N5Reader> N5NdarrayReader for T {}
 pub trait N5NdarrayWriter : N5Writer {
     /// Write an abitrary bounding box from an ndarray into an N5 volume,
     /// writing blocks in serial as necessary.
-    fn write_ndarray<T>(
+    fn write_ndarray<'a, T, A>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
         offset: GridCoord,
-        array: &ndarray::Array<T, ndarray::Dim<ndarray::IxDynImpl>>,
+        array: A,
         fill_val: T,
     ) -> Result<(), Error>
         where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock + WriteableDataBlock,
-              T: ReflectedType + num_traits::identities::Zero {
+              T: ReflectedType + num_traits::identities::Zero,
+              A: ndarray::AsArray<'a, T, ndarray::Dim<ndarray::IxDynImpl>> {
 
+        let array = array.into();
         if array.ndim() != data_attrs.get_ndim() {
             return Err(Error::new(ErrorKind::InvalidData, "Wrong number of dimensions"));
         }
