@@ -16,7 +16,7 @@ Stable 1.39
 
 ```toml
 [dependencies]
-n5 = "0.6"
+n5 = "0.7"
 ```
 
 ```rust

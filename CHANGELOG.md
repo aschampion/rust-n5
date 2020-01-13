@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+
+## [0.7.0] - 2020-01-13
+### Added
+- `N5Writer::deleteBlock` to remove blocks from a dataset.
+- `DatasetAttributes::get_num_blocks` to get the total number of blocks possible
+  in a dataset.
+- Data block metadata now includes the size of the block on the backend.
+
+### Changed
+- Setting an attribute or attributes by key will now overwrite those attributes
+  rather than recursively merging with them.
+- Data block metadata fields are now optional, to support more platforms.
+- `N5Reader::list` is now in a new trait, `N5Lister`.
+- `N5NdarrayWriter::write_ndarray` now accepts any `ndarray::AsArray` input type.
+
 ## [0.6.1] - 2020-01-08
 ### Fixed
 - The filesystem could corrupt attributes files when setting attributes,
