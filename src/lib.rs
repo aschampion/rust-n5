@@ -285,8 +285,8 @@ impl DatasetAttributes {
     /// Get the upper bound extent of grid coordinates.
     pub fn get_grid_extent(&self) -> GridCoord {
         self.dimensions.iter()
-            .zip(self.block_size.iter())
-            .map(|(d, &b)| d / u64::from(b))
+            .zip(self.block_size.iter().cloned().map(u64::from))
+            .map(|(d, b)| (d + 1) / b + (if d % b != 0 {1} else {0}))
             .collect()
     }
 
@@ -296,7 +296,7 @@ impl DatasetAttributes {
     /// use n5::smallvec::smallvec;
     /// let attrs = DatasetAttributes::new(
     ///     smallvec![50, 40, 30],
-    ///     smallvec![10, 10, 10],
+    ///     smallvec![11, 10, 10],
     ///     DataType::UINT8,
     ///     n5::compression::CompressionType::default(),
     /// );
@@ -312,7 +312,7 @@ impl DatasetAttributes {
     /// use n5::smallvec::smallvec;
     /// let attrs = DatasetAttributes::new(
     ///     smallvec![50, 40, 30],
-    ///     smallvec![10, 10, 10],
+    ///     smallvec![11, 10, 10],
     ///     DataType::UINT8,
     ///     n5::compression::CompressionType::default(),
     /// );
