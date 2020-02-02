@@ -27,6 +27,7 @@ use crate::{
     ReadableDataBlock,
     ReflectedType,
     ReinitDataBlock,
+    SliceDataBlock,
     VecDataBlock,
     WriteableDataBlock,
 };
@@ -340,7 +341,7 @@ impl DatasetAttributes {
     }
 }
 
-impl<T: ReflectedType> VecDataBlock<T> {
+impl<T: ReflectedType, C> SliceDataBlock<T, C> {
     pub fn get_bounds(&self, data_attrs: &DatasetAttributes) -> BoundingBox {
         let mut bbox = data_attrs.get_block_bounds(&self.grid_position);
         bbox.size = self.size.iter().cloned().map(u64::from).collect();
