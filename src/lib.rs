@@ -500,6 +500,8 @@ impl<T: ReflectedType, C: AsRef<[T]>> DataBlock<T> for SliceDataBlock<T, C> {
     }
 }
 
+const BLOCK_FIXED_LEN: u16 = 0;
+const BLOCK_VAR_LEN: u16 = 1;
 
 pub trait DefaultBlockHeaderReader<R: std::io::Read> {
     fn read_block_header(
@@ -512,8 +514,8 @@ pub trait DefaultBlockHeaderReader<R: std::io::Read> {
         let mut size = smallvec![0; ndim as usize];
         buffer.read_u32_into::<BigEndian>(&mut size)?;
         let num_el = match mode {
-            0 => size.iter().product(),
-            1 => buffer.read_u32::<BigEndian>()?,
+            BLOCK_FIXED_LEN => size.iter().product(),
+            BLOCK_VAR_LEN => buffer.read_u32::<BigEndian>()?,
             _ => return Err(Error::new(ErrorKind::InvalidData, "Unsupported block mode"))
         };
 
@@ -578,14 +580,14 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T> + WriteableDa
         block: &B,
     ) -> std::io::Result<()> {
         let mode: u16 = if block.get_num_elements() == block.get_size().iter().product::<u32>()
-            {0} else {1};
+            {BLOCK_FIXED_LEN} else {BLOCK_VAR_LEN};
         buffer.write_u16::<BigEndian>(mode)?;
         buffer.write_u16::<BigEndian>(data_attrs.get_ndim() as u16)?;
         for i in block.get_size() {
             buffer.write_u32::<BigEndian>(*i)?;
         }
 
-        if mode != 0 {
+        if mode != BLOCK_FIXED_LEN {
             buffer.write_u32::<BigEndian>(block.get_num_elements())?;
         }
 
