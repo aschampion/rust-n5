@@ -52,7 +52,7 @@ const ATTRIBUTES_FILE: &str = "attributes.json";
 
 
 /// A filesystem-backed N5 container.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct N5Filesystem {
     base_path: PathBuf,
 }

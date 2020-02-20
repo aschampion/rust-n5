@@ -2,6 +2,8 @@
 //! format](https://github.com/saalfeldlab/n5) created by the Saalfeld lab at
 //! Janelia Research Campus.
 
+#![deny(missing_debug_implementations)]
+
 
 // TODO: this does not run the test for recent stable rust because `test`
 // is no longer set during doc tests. When 1.40 stabilizes and is the MSRV
@@ -328,6 +330,7 @@ impl DatasetAttributes {
 }
 
 
+#[derive(Debug)]
 pub struct BlockHeader {
     size: BlockCoord,
     grid_position: GridCoord,
@@ -373,7 +376,7 @@ pub trait DataBlock<T> {
 
 /// A generic data block container wrapping any type that can be taken as a
 /// slice ref.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SliceDataBlock<T: ReflectedType, C> {
     data_type: PhantomData<T>,
     size: BlockCoord,
@@ -601,6 +604,7 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T> + WriteableDa
 // TODO: needed because cannot invoke type parameterized static trait methods
 // directly from trait name in Rust. Symptom of design problems with
 // `DefaultBlockReader`, etc.
+#[derive(Debug)]
 pub struct DefaultBlock;
 impl<R: std::io::Read> DefaultBlockHeaderReader<R> for DefaultBlock {}
 impl<T: ReflectedType, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock {}
