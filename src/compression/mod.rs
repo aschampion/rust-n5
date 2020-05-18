@@ -16,6 +16,10 @@ pub mod bzip;
 pub mod gzip;
 #[cfg(feature = "lz")]
 pub mod lz;
+#[cfg(feature = "lz_pure")]
+pub(mod) mod lz_pure;
+#[cfg(feature = "lz_pure")]
+pub mod lz { pub use super::lz_pure::*; }
 #[cfg(feature = "xz")]
 pub mod xz;
 
@@ -39,6 +43,8 @@ pub enum CompressionType {
     Gzip(gzip::GzipCompression),
     #[cfg(feature = "lz")]
     Lz4(lz::Lz4Compression),
+    #[cfg(feature = "lz_pure")]
+    Lz4(lz_pure::Lz4Compression),
     #[cfg(feature = "xz")]
     Xz(xz::XzCompression),
 }
@@ -72,6 +78,9 @@ impl Compression for CompressionType {
 
             #[cfg(feature = "lz")]
             CompressionType::Lz4(ref c) => c.decoder(r),
+
+            #[cfg(feature = "lz_pure")]
+            CompressionType::Lz4(ref c) => c.decoder(r),
         }
     }
 
@@ -89,6 +98,9 @@ impl Compression for CompressionType {
             CompressionType::Xz(ref c) => c.encoder(w),
 
             #[cfg(feature = "lz")]
+            CompressionType::Lz4(ref c) => c.encoder(w),
+
+            #[cfg(feature = "lz_pure")]
             CompressionType::Lz4(ref c) => c.encoder(w),
         }
     }
@@ -109,6 +121,9 @@ impl std::fmt::Display for CompressionType {
             CompressionType::Xz(_) => "Xz",
 
             #[cfg(feature = "lz")]
+            CompressionType::Lz4(_) => "Lz4",
+
+            #[cfg(feature = "lz_pure")]
             CompressionType::Lz4(_) => "Lz4",
         })
     }
@@ -133,3 +148,5 @@ compression_from_impl!(Gzip, gzip::GzipCompression);
 compression_from_impl!(Xz, xz::XzCompression);
 #[cfg(feature = "lz")]
 compression_from_impl!(Lz4, lz::Lz4Compression);
+#[cfg(feature = "lz_pure")]
+compression_from_impl!(Lz4, lz_pure::Lz4Compression);
