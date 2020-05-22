@@ -113,6 +113,30 @@ impl std::fmt::Display for CompressionType {
     }
 }
 
+impl std::str::FromStr for CompressionType {
+    type Err = std::io::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "raw" => Ok(Self::new::<raw::RawCompression>()),
+
+            #[cfg(feature = "bzip")]
+            "bzip2" => Ok(Self::new::<bzip::Bzip2Compression>()),
+
+            #[cfg(feature = "gzip")]
+            "gzip" => Ok(Self::new::<gzip::GzipCompression>()),
+
+            #[cfg(feature = "xz")]
+            "xz" => Ok(Self::new::<xz::XzCompression>()),
+
+            #[cfg(feature = "lz")]
+            "lz4" => Ok(Self::new::<lz::Lz4Compression>()),
+
+            _ => Err(std::io::ErrorKind::InvalidInput.into()),
+        }
+    }
+}
+
 macro_rules! compression_from_impl {
     ($variant:ident, $c_type:ty) => {
         impl std::convert::From<$c_type> for CompressionType {
