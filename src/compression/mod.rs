@@ -1,6 +1,5 @@
 //! Compression for block voxel data.
 
-use std;
 use std::io::{Read, Write};
 
 use serde::{
