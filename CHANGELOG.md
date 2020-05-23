@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## [0.7.2] - 2020-05-23
+### Added
+- `CompressionType` implements `FromStr` for default construction from plain
+  type names.
+- All public types now implement `Debug`.
+
+### Changed
+- `get_bounds` is now implemented for all `SliceDataBlock`, not just
+  `VecDataBlock`.
+
 ## [0.7.1] - 2020-01-19
 ### Fixed
 - `DatasetAttributes::get_grid_extent` no longer undercalculates extents.
