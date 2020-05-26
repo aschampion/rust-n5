@@ -352,7 +352,7 @@ impl N5Writer for N5Filesystem {
         Ok(())
     }
 
-    fn write_block<T, B: DataBlock<T> + WriteableDataBlock>(
+    fn write_block<T: ReflectedType, B: DataBlock<T> + WriteableDataBlock>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,

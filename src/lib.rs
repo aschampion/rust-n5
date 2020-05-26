@@ -204,7 +204,7 @@ pub trait N5Writer : N5Reader {
         path_name: &str,
     ) -> Result<(), Error>;
 
-    fn write_block<T, B: DataBlock<T> + WriteableDataBlock>(
+    fn write_block<T: ReflectedType, B: DataBlock<T> + WriteableDataBlock>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
@@ -576,12 +576,19 @@ pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHe
 }
 
 /// Writes blocks to rust writers.
-pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T> + WriteableDataBlock> {
+pub trait DefaultBlockWriter<T: ReflectedType, W: std::io::Write, B: DataBlock<T> + WriteableDataBlock> {
     fn write_block(
         mut buffer: W,
         data_attrs: &DatasetAttributes,
         block: &B,
     ) -> std::io::Result<()> {
+
+        if data_attrs.data_type != T::VARIANT {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Attempt to write data block for wrong type."))
+        }
+
         let mode: u16 = if block.get_num_elements() == block.get_size().iter().product::<u32>()
             {BLOCK_FIXED_LEN} else {BLOCK_VAR_LEN};
         buffer.write_u16::<BigEndian>(mode)?;
@@ -608,4 +615,4 @@ pub trait DefaultBlockWriter<T, W: std::io::Write, B: DataBlock<T> + WriteableDa
 pub struct DefaultBlock;
 impl<R: std::io::Read> DefaultBlockHeaderReader<R> for DefaultBlock {}
 impl<T: ReflectedType, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock {}
-impl<T, W: std::io::Write, B: DataBlock<T> + WriteableDataBlock> DefaultBlockWriter<T, W, B> for DefaultBlock {}
+impl<T: ReflectedType, W: std::io::Write, B: DataBlock<T> + WriteableDataBlock> DefaultBlockWriter<T, W, B> for DefaultBlock {}
