@@ -78,6 +78,38 @@ fn test_read_ndarray() {
 }
 
 
+#[test]
+fn test_read_ndarray_oob() {
+
+    let dir = tempdir::TempDir::new("rust_n5_ndarray_tests").unwrap();
+    let path_str = dir.path().to_str().unwrap();
+
+    let n = N5Filesystem::open_or_create(path_str)
+        .expect("Failed to create N5 filesystem");
+
+    let block_size = smallvec![50, 100];
+    let data_attrs = DatasetAttributes::new(
+        smallvec![100, 200],
+        block_size.clone(),
+        i32::VARIANT,
+        CompressionType::default(),
+    );
+
+    let path_name = "test/dataset/group";
+    n.create_dataset(path_name, &data_attrs)
+        .expect("Failed to create dataset");
+
+    let block_in = VecDataBlock::new(
+        smallvec![1, 1],
+        smallvec![1, 1],
+        vec![1]);
+    n.write_block(path_name, &data_attrs, &block_in)
+        .expect("Failed to write block");
+
+    let bbox = BoundingBox::new(smallvec![45, 175], smallvec![50, 50]);
+    let a = n.read_ndarray::<i32>(path_name, &data_attrs, &bbox).unwrap();
+    assert!(a.iter().all(|v| *v == 0));
+}
 
 
 #[test]

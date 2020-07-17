@@ -85,7 +85,7 @@ impl BoundingBox {
             .zip(other.offset.iter())
             .for_each(|(((s, o), os), oo)| {
                 let new_o = std::cmp::max(*oo, *o);
-                *s = std::cmp::max(0, std::cmp::min(*s + *o, *oo + *os) - new_o);
+                *s = std::cmp::min(*s + *o, *oo + *os).saturating_sub(new_o);
                 *o = new_o;
             });
     }
@@ -125,6 +125,10 @@ impl BoundingBox {
                 step: 1,
             }).collect()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.size.contains(&0)
+    }
 }
 
 impl Sub<&GridCoord> for BoundingBox {
@@ -134,7 +138,7 @@ impl Sub<&GridCoord> for BoundingBox {
         Self {
             offset: self.offset.iter()
                 .zip(other.iter())
-                .map(|(s, o)| s - o)
+                .map(|(s, o)| s.checked_sub(*o).unwrap())
                 .collect(),
             size: self.size.clone(),
         }
@@ -183,6 +187,14 @@ pub trait N5NdarrayReader : N5Reader {
                 let block_bb = block.get_bounds(data_attrs);
                 let mut read_bb = bbox.clone();
                 read_bb.intersect(&block_bb);
+
+                // It may be the case the while the block's potential bounds are
+                // in the request region, the block is smaller such that it does
+                // not intersect.
+                if read_bb.is_empty() {
+                    continue;
+                }
+
                 let arr_read_bb = read_bb.clone() - &bbox.offset;
                 let block_read_bb = read_bb.clone() - &block_bb.offset;
 
