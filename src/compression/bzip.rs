@@ -20,20 +20,7 @@ pub struct Bzip2Compression {
     block_size: u8,
 }
 
-impl Bzip2Compression {
-    /// `bzip2` has fixed enum levels for compression.
-    fn get_effective_compression(&self) -> BzCompression {
-        if i32::from(self.block_size) <= BzCompression::Fastest as i32 {
-            BzCompression::Fastest
-        } else if i32::from(self.block_size) <= BzCompression::Default as i32 {
-            BzCompression::Default
-        } else {
-            BzCompression::Best
-        }
-    }
-}
-
-fn default_bzip_block_size() -> u8 {8}
+fn default_bzip_block_size() -> u8 {9}
 
 impl Default for Bzip2Compression {
     fn default() -> Bzip2Compression {
@@ -49,7 +36,7 @@ impl Compression for Bzip2Compression {
     }
 
     fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<dyn Write + 'a> {
-        Box::new(BzEncoder::new(w, self.get_effective_compression()))
+        Box::new(BzEncoder::new(w, BzCompression::new(u32::from(self.block_size))))
     }
 }
 
