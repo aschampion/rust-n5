@@ -5,6 +5,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## [0.7.3] - 2020-07-17
+### Added
+- An alternative pure Rust Lz4 backend is available under the `lz_pure` feature
+  flag. This is not the default as it does not yet match the performance of the
+  default `lz` feature backend.
+
+### Changed
+- `Bzip2Compression` now respects exact `block_size` value in [1, 9] rather than
+  just a three-tier behavior.
+- `N5Filesystem::open` and `N5Filesystem::open_or_create` now accept any
+  `AsRef<Path>` base path. This is backwards compatible with the previous `&str`
+  type.
+
+### Fixed
+- Fixed a panic in `N5NdarrayReader::read_ndarray` when a block's dataset-
+  level bounds overlapped the request bounds, but its actual bounds did not.
+- Removed the ability to write blocks with a different datatype than the
+  attributes' to a dataset.
+- Dependency updates include fixes for upstream vulnerabilities and bugs in
+  bzip2 and gzip compressions.
+
 ## [0.7.2] - 2020-05-23
 ### Added
 - `CompressionType` implements `FromStr` for default construction from plain
