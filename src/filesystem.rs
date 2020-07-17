@@ -439,6 +439,22 @@ mod tests {
     }
 
     #[test]
+    fn accept_hardlink_attributes() {
+        let wrapper = N5Filesystem::temp_new_rw();
+        let dir = TempDir::new("rust_n5_tests_dupe").unwrap();
+        let path_str = dir.path().to_str().unwrap();
+        let mut attr_path = dir.path().to_path_buf();
+        attr_path.push(ATTRIBUTES_FILE);
+
+        std::fs::hard_link(wrapper.n5.get_attributes_path("").unwrap(), &attr_path).unwrap();
+
+        wrapper.n5.set_attribute("", "foo".into(), "bar").unwrap();
+
+        let dupe = N5Filesystem::open(path_str).unwrap();
+        assert_eq!(dupe.get_attributes("").unwrap()["foo"], "bar");
+    }
+
+    #[test]
     fn test_get_block_uri() {
         let dir = TempDir::new("rust_n5_tests").unwrap();
         let path_str = dir.path().to_str().unwrap();
