@@ -15,9 +15,8 @@ use n5::ndarray::prelude::*;
 fn test_read_ndarray() {
 
     let dir = tempdir::TempDir::new("rust_n5_ndarray_tests").unwrap();
-    let path_str = dir.path().to_str().unwrap();
 
-    let n = N5Filesystem::open_or_create(path_str)
+    let n = N5Filesystem::open_or_create(dir.path())
         .expect("Failed to create N5 filesystem");
 
     let block_size = smallvec![3, 4, 2, 1];
@@ -82,9 +81,8 @@ fn test_read_ndarray() {
 fn test_read_ndarray_oob() {
 
     let dir = tempdir::TempDir::new("rust_n5_ndarray_tests").unwrap();
-    let path_str = dir.path().to_str().unwrap();
 
-    let n = N5Filesystem::open_or_create(path_str)
+    let n = N5Filesystem::open_or_create(dir.path())
         .expect("Failed to create N5 filesystem");
 
     let block_size = smallvec![50, 100];
@@ -116,9 +114,8 @@ fn test_read_ndarray_oob() {
 fn test_write_read_ndarray() {
 
     let dir = tempdir::TempDir::new("rust_n5_ndarray_tests").unwrap();
-    let path_str = dir.path().to_str().unwrap();
 
-    let n = N5Filesystem::open_or_create(path_str)
+    let n = N5Filesystem::open_or_create(dir.path())
         .expect("Failed to create N5 filesystem");
 
     let block_size = smallvec![3, 4, 2, 1];

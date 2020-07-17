@@ -128,9 +128,8 @@ fn bench_write_dtype_compression<T, C>(b: &mut Bencher, pool_size: usize)
             SliceDataBlock<T, std::sync::Arc<[T]>>: n5::WriteableDataBlock {
 
     let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
-    let path_str = dir.path().to_str().unwrap();
 
-    let n = N5Filesystem::open_or_create(path_str)
+    let n = N5Filesystem::open_or_create(dir.path())
         .expect("Failed to create N5 filesystem");
     let compression = CompressionType::new::<C>();
     // TODO: load the test image data.

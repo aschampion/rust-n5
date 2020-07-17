@@ -59,9 +59,9 @@ pub struct N5Filesystem {
 
 impl N5Filesystem {
     /// Open an existing N5 container by path.
-    pub fn open(base_path: &str) -> Result<N5Filesystem> {
+    pub fn open<P: AsRef<std::path::Path>>(base_path: P) -> Result<N5Filesystem> {
         let reader = N5Filesystem {
-            base_path: PathBuf::from(base_path),
+            base_path: PathBuf::from(base_path.as_ref()),
         };
 
         if reader.exists("")? {
@@ -78,9 +78,9 @@ impl N5Filesystem {
     /// Open an existing N5 container by path or create one if none exists.
     ///
     /// Note this will update the version attribute for existing containers.
-    pub fn open_or_create(base_path: &str) -> Result<N5Filesystem> {
+    pub fn open_or_create<P: AsRef<std::path::Path>>(base_path: P) -> Result<N5Filesystem> {
         let reader = N5Filesystem {
-            base_path: PathBuf::from(base_path),
+            base_path: PathBuf::from(base_path.as_ref()),
         };
 
         fs::create_dir_all(base_path)?;
@@ -408,8 +408,7 @@ mod tests {
 
         fn temp_new_rw() -> Self::Wrapper {
             let dir = TempDir::new("rust_n5_tests").unwrap();
-            let path_str = dir.path().to_str().unwrap();
-            let n5 = N5Filesystem::open_or_create(path_str)
+            let n5 = N5Filesystem::open_or_create(dir.path())
                 .expect("Failed to create N5 filesystem");
 
             ContextWrapper {
@@ -419,9 +418,7 @@ mod tests {
         }
 
         fn open_reader(&self) -> Self {
-            N5Filesystem::open(
-                &self.base_path.clone().into_os_string().into_string().unwrap()
-            ).unwrap()
+            N5Filesystem::open(&self.base_path).unwrap()
         }
     }
 
@@ -442,7 +439,6 @@ mod tests {
     fn accept_hardlink_attributes() {
         let wrapper = N5Filesystem::temp_new_rw();
         let dir = TempDir::new("rust_n5_tests_dupe").unwrap();
-        let path_str = dir.path().to_str().unwrap();
         let mut attr_path = dir.path().to_path_buf();
         attr_path.push(ATTRIBUTES_FILE);
 
@@ -450,7 +446,7 @@ mod tests {
 
         wrapper.n5.set_attribute("", "foo".into(), "bar").unwrap();
 
-        let dupe = N5Filesystem::open(path_str).unwrap();
+        let dupe = N5Filesystem::open(dir.path()).unwrap();
         assert_eq!(dupe.get_attributes("").unwrap()["foo"], "bar");
     }
 

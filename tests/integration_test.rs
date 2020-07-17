@@ -76,9 +76,8 @@ fn test_all_types<N5: N5Reader + N5Writer>(
 
 fn test_n5_filesystem_dim(dim: usize) {
     let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
-    let path_str = dir.path().to_str().unwrap();
 
-    let n = N5Filesystem::open_or_create(path_str)
+    let n = N5Filesystem::open_or_create(dir.path())
         .expect("Failed to create N5 filesystem");
     test_all_types(&n, &CompressionType::Raw(compression::raw::RawCompression::default()), dim);
 }
@@ -105,9 +104,8 @@ fn test_all_compressions<N5: N5Reader + N5Writer>(n: &N5) {
 #[test]
 fn test_n5_filesystem_compressions() {
     let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
-    let path_str = dir.path().to_str().unwrap();
 
-    let n = N5Filesystem::open_or_create(path_str)
+    let n = N5Filesystem::open_or_create(dir.path())
         .expect("Failed to create N5 filesystem");
     test_all_compressions(&n)
 }
