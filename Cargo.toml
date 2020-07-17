@@ -35,7 +35,7 @@ lz-fear = { version = "0.1.1", optional = true }
 ndarray = { version = "0.13", optional = true }
 num-traits = { version = "0.2", optional = true }
 serde = { version = "1.0", features = ["derive"] }
-smallvec = { version = "1.0", features = ["serde"] }
+smallvec = { version = "1", features = ["serde"] }
 walkdir = { version = "2", optional = true }
 xz2 = { version = "0.1", optional = true }
 
