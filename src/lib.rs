@@ -223,6 +223,10 @@ pub trait N5Writer : N5Reader {
 }
 
 
+fn u64_ceil_div(a: u64, b: u64) -> u64 {
+    (a + 1) / b + (if a % b != 0 {1} else {0})
+}
+
 /// Attributes of a tensor dataset.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -288,7 +292,7 @@ impl DatasetAttributes {
     pub fn get_grid_extent(&self) -> GridCoord {
         self.dimensions.iter()
             .zip(self.block_size.iter().cloned().map(u64::from))
-            .map(|(d, b)| (d + 1) / b + (if d % b != 0 {1} else {0}))
+            .map(|(d, b)| u64_ceil_div(*d, b))
             .collect()
     }
 
