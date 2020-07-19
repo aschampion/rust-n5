@@ -69,6 +69,8 @@ pub const VERSION: Version = Version {
     build: Vec::new(),
 };
 
+/// Determines whether a version of an N5 implementation is capable of accessing
+/// a version of an N5 container (`other`).
 pub fn is_version_compatible(s: &Version, other: &Version) -> bool {
     other.major <= s.major
 }
@@ -76,6 +78,11 @@ pub fn is_version_compatible(s: &Version, other: &Version) -> bool {
 /// Key name for the version attribute in the container root.
 pub const VERSION_ATTRIBUTE_KEY: &str = "n5";
 
+/// Container metadata about a data block.
+///
+/// This is metadata from the persistence layer of the container, such as
+/// filesystem access times and on-disk sizes, and is not to be confused with
+/// semantic metadata stored as attributes in the container.
 #[derive(Clone, Debug)]
 pub struct DataBlockMetadata {
     pub created: Option<SystemTime>,
@@ -138,6 +145,7 @@ pub trait N5Reader {
     fn list_attributes(&self, path_name: &str) -> Result<serde_json::Value, Error>;
 }
 
+/// Non-mutating operations on N5 containers that support group discoverability.
 pub trait N5Lister : N5Reader {
     /// List all groups (including datasets) in a group.
     fn list(&self, path_name: &str) -> Result<Vec<String>, Error>;
@@ -334,6 +342,7 @@ impl DatasetAttributes {
 }
 
 
+/// Unencoded, non-payload header of a data block.
 #[derive(Debug)]
 pub struct BlockHeader {
     size: BlockCoord,
@@ -341,19 +350,29 @@ pub struct BlockHeader {
     num_el: usize,
 }
 
+/// Traits for data blocks that can be reused as a different blocks after
+/// construction.
 pub trait ReinitDataBlock<T> {
+    /// Reinitialize this data block with a new header, reallocating as
+    /// necessary.
     fn reinitialize(&mut self, header: BlockHeader);
 
+    /// Reinitialize this data block with the header and data of another block.
     fn reinitialize_with<B: DataBlock<T>>(&mut self, other: &B);
 }
 
+/// Traits for data blocks that can read in data.
 pub trait ReadableDataBlock {
+    /// Read data into this block from a source, overwriting any existing data.
+    ///
     /// Unlike Java N5, read the stream directly into the block data instead
     /// of creating a copied byte buffer.
     fn read_data<R: std::io::Read>(&mut self, source: R) -> std::io::Result<()>;
 }
 
+/// Traits for data blocks that can write out data.
 pub trait WriteableDataBlock {
+    /// Write the data from this block into a target.
     fn write_data<W: std::io::Write>(&self, target: W) -> std::io::Result<()>;
 }
 
