@@ -5,7 +5,7 @@ A (mostly pure) rust implementation of the [N5 "Not HDF5" n-dimensional tensor f
 Compatible with Java N5 Version 2.1.3.
 
 ## Differences from Java N5
-- Dataset paths are relative. The root path in a dataset is `""`, not `"/"`.
+- Dataset paths may be relative. The root path in a dataset is addressable both by `"/"` and `""`.
 - Dataset paths are more strict. Calling methods with paths outside the dataset, e.g., `".."`, will return a `Result::Err`.
 
 ## Minimum supported Rust version (MSRV)
@@ -40,7 +40,7 @@ fn n5_roundtrip(root_path: &str) -> std::io::Result<()> {
         smallvec![0, 0, 0],
         block_data.clone());
 
-    let path_name = "test/dataset/group";
+    let path_name = "/test/dataset/group";
 
     n.create_dataset(path_name, &data_attrs)?;
     n.write_block(path_name, &data_attrs, &block_in)?;

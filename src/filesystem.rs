@@ -119,29 +119,25 @@ impl N5Filesystem {
 
         // TODO: cleanup?
         let data_path = PathBuf::from(path_name);
-        if data_path.is_relative() {
-            let mut nest: i32 = 0;
-            let mut interior = true;
-            for component in data_path.components() {
-                match component {
-                    Component::Prefix(_) => unreachable!(), // Not an absolute path.
-                    Component::RootDir => unreachable!(), // Not an absolute path.
-                    Component::CurDir => continue,
-                    Component::ParentDir => nest -= 1,
-                    Component::Normal(_) => nest += 1,
-                };
-
-                if nest < 0 {
-                    interior = false
-                }
-            }
-
-            if interior {
-                return Ok(self.base_path.join(path_name))
-            }
+        let mut nest: i32 = 0;
+        for component in data_path.components() {
+            match component {
+                Component::Prefix(_) => return Err(Error::new(
+                    ErrorKind::NotFound,
+                    "Path name is outside this N5 filesystem on a prefix path")),
+                Component::RootDir => nest = 0,
+                Component::CurDir => continue,
+                Component::ParentDir => nest -= 1,
+                Component::Normal(_) => nest += 1,
+            };
         }
 
-        Err(Error::new(ErrorKind::NotFound, "Path name is outside this N5 filesystem"))
+        if nest < 0 {
+            Err(Error::new(ErrorKind::NotFound, "Path name is outside this N5 filesystem"))
+        } else {
+            Ok(self.base_path.join(path_name))
+        }
+
     }
 
     fn get_data_block_path(&self, path_name: &str, grid_position: &[u64]) -> Result<PathBuf> {
@@ -429,7 +425,8 @@ mod tests {
         let wrapper = N5Filesystem::temp_new_rw();
         let create = wrapper.as_ref();
 
-        assert!(create.get_path("/").is_err());
+        assert!(create.get_path("/").is_ok());
+        assert!(create.get_path("/..").is_err());
         assert!(create.get_path("..").is_err());
         assert!(create.get_path("foo/bar/baz/../../..").is_ok());
         assert!(create.get_path("foo/bar/baz/../../../..").is_err());
