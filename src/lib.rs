@@ -3,6 +3,7 @@
 //! Janelia Research Campus.
 
 #![deny(missing_debug_implementations)]
+#![forbid(unsafe_code)]
 
 
 // TODO: this does not run the test for recent stable rust because `test`
@@ -467,9 +468,19 @@ macro_rules! vec_data_block_impl {
     }
 }
 
+// Wrapper trait to erase a generic trait argument for consistent ByteOrder
+// signatures.
+trait ReadBytesExtI8: ReadBytesExt {
+    fn read_i8_into_wrapper<B: ByteOrder>(&mut self, dst: &mut [i8]) -> std::io::Result<()> {
+        self.read_i8_into(dst)
+    }
+}
+impl<T: ReadBytesExt> ReadBytesExtI8 for T {}
+
 vec_data_block_impl!(u16, read_u16_into, write_u16_into);
 vec_data_block_impl!(u32, read_u32_into, write_u32_into);
 vec_data_block_impl!(u64, read_u64_into, write_u64_into);
+vec_data_block_impl!(i8, read_i8_into_wrapper, write_i8_into);
 vec_data_block_impl!(i16, read_i16_into, write_i16_into);
 vec_data_block_impl!(i32, read_i32_into, write_i32_into);
 vec_data_block_impl!(i64, read_i64_into, write_i64_into);
@@ -485,26 +496,6 @@ impl<C: AsMut<[u8]>> ReadableDataBlock for SliceDataBlock<u8, C> {
 impl<C: AsRef<[u8]>> WriteableDataBlock for SliceDataBlock<u8, C> {
     fn write_data<W: std::io::Write>(&self, mut target: W) -> std::io::Result<()> {
         target.write_all(self.data.as_ref())
-    }
-}
-
-impl<C: AsMut<[i8]>> ReadableDataBlock for SliceDataBlock<i8, C> {
-    fn read_data<R: std::io::Read>(&mut self, mut source: R) -> std::io::Result<()> {
-        // Unsafe necessary here because we need a &mut [u8] to avoid doing
-        // individual reads to the i8 data. This is safe.
-        // Note that byteorder's read_i8_into is not used, because it is also
-        // unsafe under the hood and moreso than this incantation.
-        let data_ref = unsafe { &mut *(self.data.as_mut() as *mut [i8] as *mut [u8]) };
-        source.read_exact(data_ref)
-    }
-}
-
-impl<C: AsRef<[i8]>> WriteableDataBlock for SliceDataBlock<i8, C> {
-    fn write_data<W: std::io::Write>(&self, mut target: W) -> std::io::Result<()> {
-        // Unsafe necessary here because we need a &mut [u8] to avoid doing
-        // individual writes from the i8 data. This is safe.
-        let data_ref = unsafe { &*(self.data.as_ref() as *const [i8] as *const [u8]) };
-        target.write_all(data_ref)
     }
 }
 
