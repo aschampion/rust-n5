@@ -60,6 +60,7 @@ pub type CoordVec<T> = SmallVec<[T; COORD_SMALLVEC_SIZE]>;
 pub type BlockCoord = CoordVec<u32>;
 pub type GridCoord = CoordVec<u64>;
 
+type N5Endian = BigEndian;
 
 /// Version of the Java N5 spec supported by this library.
 pub const VERSION: Version = Version {
@@ -446,7 +447,7 @@ macro_rules! vec_data_block_impl {
     ($ty_name:ty, $bo_read_fn:ident, $bo_write_fn:ident) => {
         impl<C: AsMut<[$ty_name]>> ReadableDataBlock for SliceDataBlock<$ty_name, C> {
             fn read_data<R: std::io::Read>(&mut self, mut source: R) -> std::io::Result<()> {
-                source.$bo_read_fn::<BigEndian>(self.data.as_mut())
+                source.$bo_read_fn::<N5Endian>(self.data.as_mut())
             }
         }
 
@@ -458,7 +459,7 @@ macro_rules! vec_data_block_impl {
 
                 for c in self.data.as_ref().chunks(CHUNK) {
                     let byte_len = c.len() * std::mem::size_of::<$ty_name>();
-                    BigEndian::$bo_write_fn(c, &mut buf[..byte_len]);
+                    N5Endian::$bo_write_fn(c, &mut buf[..byte_len]);
                     target.write_all(&buf[..byte_len])?;
                 }
 
@@ -526,13 +527,13 @@ pub trait DefaultBlockHeaderReader<R: std::io::Read> {
         grid_position: GridCoord,
     ) -> std::io::Result<BlockHeader> {
 
-        let mode = buffer.read_u16::<BigEndian>()?;
-        let ndim = buffer.read_u16::<BigEndian>()?;
+        let mode = buffer.read_u16::<N5Endian>()?;
+        let ndim = buffer.read_u16::<N5Endian>()?;
         let mut size = smallvec![0; ndim as usize];
-        buffer.read_u32_into::<BigEndian>(&mut size)?;
+        buffer.read_u32_into::<N5Endian>(&mut size)?;
         let num_el = match mode {
             BLOCK_FIXED_LEN => size.iter().product(),
-            BLOCK_VAR_LEN => buffer.read_u32::<BigEndian>()?,
+            BLOCK_VAR_LEN => buffer.read_u32::<N5Endian>()?,
             _ => return Err(Error::new(ErrorKind::InvalidData, "Unsupported block mode"))
         };
 
@@ -605,14 +606,14 @@ pub trait DefaultBlockWriter<T: ReflectedType, W: std::io::Write, B: DataBlock<T
 
         let mode: u16 = if block.get_num_elements() == block.get_size().iter().product::<u32>()
             {BLOCK_FIXED_LEN} else {BLOCK_VAR_LEN};
-        buffer.write_u16::<BigEndian>(mode)?;
-        buffer.write_u16::<BigEndian>(data_attrs.get_ndim() as u16)?;
+        buffer.write_u16::<N5Endian>(mode)?;
+        buffer.write_u16::<N5Endian>(data_attrs.get_ndim() as u16)?;
         for i in block.get_size() {
-            buffer.write_u32::<BigEndian>(*i)?;
+            buffer.write_u32::<N5Endian>(*i)?;
         }
 
         if mode != BLOCK_FIXED_LEN {
-            buffer.write_u32::<BigEndian>(block.get_num_elements())?;
+            buffer.write_u32::<N5Endian>(block.get_num_elements())?;
         }
 
         let mut compressor = data_attrs.compression.encoder(buffer);
