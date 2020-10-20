@@ -265,7 +265,7 @@ impl N5Lister for N5Filesystem {
         Ok(fs::read_dir(self.get_path(path_name)?)?
             .filter_map(|e| {
                 if let Ok(file) = e {
-                    if file.file_type().map(|f| f.is_dir()).ok() == Some(true) {
+                    if fs::metadata(file.path()).map(|f| f.file_type().is_dir()).ok() == Some(true) {
                         file.file_name().into_string().ok()
                     } else {
                         None
