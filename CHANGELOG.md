@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## [0.7.4] - 2020-10-20
+### Changed
+- Dataset paths can now be absolute (with a leading `/`)
+
+### Fixed
+- `N5Filesystem::list` now traverses symlinks.
+
 ## [0.7.3] - 2020-07-17
 ### Added
 - An alternative pure Rust Lz4 backend is available under the `lz_pure` feature
