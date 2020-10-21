@@ -96,7 +96,7 @@ impl N5Filesystem {
 
     pub fn get_attributes(&self, path_name: &str) -> Result<Value> {
         if self.exists(path_name)? {
-            let attr_path = self.base_path.join(path_name).join(ATTRIBUTES_FILE);
+            let attr_path = self.get_path(path_name)?.join(ATTRIBUTES_FILE);
 
             if attr_path.exists() && attr_path.is_file() {
                 let file = File::open(attr_path)?;
@@ -111,6 +111,7 @@ impl N5Filesystem {
         }
     }
 
+    /// Get the filesystem path for a given N5 data path.
     fn get_path(&self, path_name: &str) -> Result<PathBuf> {
         // Note: cannot use `canonicalize` on both the constructed dataset path
         // and `base_path` and check `starts_with`, because `canonicalize` also
@@ -120,22 +121,23 @@ impl N5Filesystem {
         // TODO: cleanup?
         let data_path = PathBuf::from(path_name);
         let mut nest: i32 = 0;
+        let mut canon_path = PathBuf::from(&self.base_path);
         for component in data_path.components() {
             match component {
                 Component::Prefix(_) => return Err(Error::new(
                     ErrorKind::NotFound,
                     "Path name is outside this N5 filesystem on a prefix path")),
-                Component::RootDir => nest = 0,
+                Component::RootDir => {nest = 0; canon_path.clear(); canon_path.push(&self.base_path); }
                 Component::CurDir => continue,
-                Component::ParentDir => nest -= 1,
-                Component::Normal(_) => nest += 1,
+                Component::ParentDir => {nest -= 1; canon_path.pop(); },
+                Component::Normal(p) => {nest += 1; canon_path.push(p)},
             };
         }
 
         if nest < 0 {
             Err(Error::new(ErrorKind::NotFound, "Path name is outside this N5 filesystem"))
         } else {
-            Ok(self.base_path.join(path_name))
+            Ok(canon_path)
         }
 
     }
@@ -173,7 +175,7 @@ impl N5Reader for N5Filesystem {
     }
 
     fn exists(&self, path_name: &str) -> Result<bool> {
-        let target = self.base_path.join(path_name);
+        let target = self.get_path(path_name)?;
         Ok(target.is_dir())
     }
 

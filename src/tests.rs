@@ -1,5 +1,5 @@
 use super::*;
-use std::io::Cursor;
+use std::io::{Cursor, Result};
 
 use serde_json::json;
 
@@ -160,6 +160,33 @@ pub(crate) fn create_dataset<N: N5Testable>() {
     assert_eq!(read.get_dataset_attributes("foo/bar").unwrap(), data_attrs);
 }
 
+pub(crate) fn absolute_relative_paths<N: N5Testable>() -> Result<()> {
+    let wrapper = N::temp_new_rw();
+    let create = wrapper.as_ref();
+    let data_attrs = DatasetAttributes::new(
+        smallvec![10, 10, 10],
+        smallvec![5, 5, 5],
+        DataType::INT32,
+        crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
+    );
+    create.create_dataset("foo/bar", &data_attrs)
+        .expect("Failed to create dataset");
+
+    let read = create.open_reader();
+
+    assert_eq!(read.get_dataset_attributes("foo/bar")?, data_attrs);
+    assert!(read.exists("/foo/bar")?);
+    assert_eq!(read.get_dataset_attributes("/foo/bar")?, data_attrs);
+    assert!(read.dataset_exists("/foo/bar")?);
+    // Repeated slashes are combined in Rust, not roots.
+    assert!(!read.exists("/foo//foo/bar")?);
+    assert!(read.exists("/foo//bar")?);
+    assert_eq!(read.get_dataset_attributes("/foo//bar")?, data_attrs);
+    assert!(read.dataset_exists("/foo//bar")?);
+
+    Ok(())
+}
+
 pub(crate) fn attributes_rw<N: N5Testable>() {
     let wrapper = N::temp_new_rw();
     let create = wrapper.as_ref();
@@ -307,6 +334,11 @@ macro_rules! test_backend {
         #[test]
         fn create_dataset() {
             $crate::tests::create_dataset::<$backend>()
+        }
+
+        #[test]
+        fn absolute_relative_paths() -> Result<()> {
+            $crate::tests::absolute_relative_paths::<$backend>()
         }
 
         #[test]
