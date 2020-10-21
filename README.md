@@ -33,12 +33,12 @@ fn n5_roundtrip(root_path: &str) -> std::io::Result<()> {
         DataType::INT16,
         CompressionType::default(),
     );
-    let block_data: Vec<i16> = vec![0i16; data_attrs.get_block_num_elements()];
+    let block_data = vec![0i16; data_attrs.get_block_num_elements()];
 
-    let block_in = VecDataBlock::new(
+    let block_in = SliceDataBlock::new(
         block_size,
         smallvec![0, 0, 0],
-        block_data.clone());
+        &block_data);
 
     let path_name = "/test/dataset/group";
 
@@ -47,7 +47,7 @@ fn n5_roundtrip(root_path: &str) -> std::io::Result<()> {
 
     let block_out = n.read_block::<i16>(path_name, &data_attrs, smallvec![0, 0, 0])?
         .expect("Block is empty");
-    assert_eq!(block_out.get_data(), &block_data);
+    assert_eq!(block_out.get_data(), &block_data[..]);
 
     Ok(())
 }
