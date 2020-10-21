@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## [0.7.5] - 2020-10-21
+### Fixed
+- `N5Filesystem` incorrectly handled absolute data paths for many operations.
+
 ## [0.7.4] - 2020-10-20
 ### Changed
 - Dataset paths can now be absolute (with a leading `/`)
