@@ -448,6 +448,21 @@ mod tests {
     }
 
     #[test]
+    fn list_symlinked_datasets() {
+        let wrapper = N5Filesystem::temp_new_rw();
+        let dir = TempDir::new("rust_n5_tests_dupe").unwrap();
+        let mut linked_path = wrapper.context.path().to_path_buf();
+        linked_path.push("linked_dataset");
+
+        #[cfg(target_family = "unix")]
+        std::os::unix::fs::symlink(dir.path(), &linked_path).unwrap();
+        #[cfg(target_family = "windows")]
+        std::os::windows::fs::symlink_dir(dir.path(), &linked_path).unwrap();
+
+        assert_eq!(wrapper.n5.list("").unwrap(), vec!["linked_dataset"]);
+    }
+
+    #[test]
     fn test_get_block_uri() {
         let dir = TempDir::new("rust_n5_tests").unwrap();
         let path_str = dir.path().to_str().unwrap();
