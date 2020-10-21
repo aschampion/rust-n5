@@ -460,6 +460,17 @@ mod tests {
         std::os::windows::fs::symlink_dir(dir.path(), &linked_path).unwrap();
 
         assert_eq!(wrapper.n5.list("").unwrap(), vec!["linked_dataset"]);
+        assert!(wrapper.n5.exists("linked_dataset").unwrap());
+
+        let data_attrs = DatasetAttributes::new(
+            smallvec![10, 10, 10],
+            smallvec![5, 5, 5],
+            crate::DataType::INT32,
+            crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
+        );
+        wrapper.n5.create_dataset("linked_dataset", &data_attrs)
+            .expect("Failed to create dataset");
+        assert!(wrapper.n5.dataset_exists("linked_dataset").unwrap());
     }
 
     #[test]
