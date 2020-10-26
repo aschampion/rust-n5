@@ -5,6 +5,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## [0.7.6] - 2020-10-26
+### Added
+- `N5NdarrayReader::read_ndarray_into(_with_buffer)?` allow reading into
+  existing ndarrays and with existing block buffers for fewer allocations.
+
+### Changed
+- `N5NdarrayWriter::write_ndarray` performs fewer per-block allocations.
+
+### Fixed
+- Fixed a performance regression around path canonicalization in `N5Filesystem`.
+
 ## [0.7.5] - 2020-10-21
 ### Fixed
 - `N5Filesystem` incorrectly handled absolute data paths for many operations.
