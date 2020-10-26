@@ -255,6 +255,7 @@ pub trait N5NdarrayWriter : N5Writer {
         array: A,
         fill_val: T,
     ) -> Result<(), Error>
+        // TODO: Next breaking version, refactor to use `SliceDataBlock` bounds.
         where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock + WriteableDataBlock,
               T: ReflectedType + num_traits::identities::Zero,
               A: ndarray::AsArray<'a, T, ndarray::Dim<ndarray::IxDynImpl>> {
@@ -267,6 +268,8 @@ pub trait N5NdarrayWriter : N5Writer {
             offset,
             size: array.shape().iter().map(|n| *n as u64).collect(),
         };
+
+        let mut block_vec: Vec<T> = Vec::new();
 
         for coord in data_attrs.bounded_coord_iter(&bbox) {
 
@@ -283,10 +286,12 @@ pub trait N5NdarrayWriter : N5Writer {
 
                 // No need to read whether there is an extant block if it is
                 // going to be entirely overwrriten.
-                let block_vec = arr_view.t().iter().cloned().collect();
+                block_vec.clear();
+                block_vec.extend(arr_view.t().iter().cloned());
                 let block = VecDataBlock::new(write_bb.size_block(), coord.into(), block_vec);
 
                 self.write_block(path_name, data_attrs, &block)?;
+                block_vec = block.into_data();
 
             } else {
 
@@ -320,10 +325,12 @@ pub trait N5NdarrayWriter : N5Writer {
 
                 block_view.assign(&arr_view);
 
-                let block_vec = block_array.t().iter().cloned().collect();
+                block_vec.clear();
+                block_vec.extend(block_array.t().iter().cloned());
                 let block = VecDataBlock::new(block_bb.size_block(), coord.into(), block_vec);
 
                 self.write_block(path_name, data_attrs, &block)?;
+                block_vec = block.into_data();
             }
         }
 
