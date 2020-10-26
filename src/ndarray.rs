@@ -146,7 +146,7 @@ impl Sub<&GridCoord> for BoundingBox {
 }
 
 pub trait N5NdarrayReader : N5Reader {
-    /// Read an abitrary bounding box from an N5 volume in an ndarray, reading
+    /// Read an abitrary bounding box from an N5 volume into an ndarray, reading
     /// blocks in serial as necessary.
     ///
     /// Assumes blocks are column-major and returns a column-major ndarray.
@@ -159,11 +159,36 @@ pub trait N5NdarrayReader : N5Reader {
         where VecDataBlock<T>: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock,
               T: ReflectedType + num_traits::identities::Zero {
 
-        if bbox.offset.len() != data_attrs.get_ndim() {
+        let mut arr = Array::zeros(bbox.size_ndarray_shape().f());
+
+        self.read_ndarray_into(path_name, data_attrs, bbox, arr.view_mut())?;
+
+        Ok(arr)
+    }
+
+    /// Read an abitrary bounding box from an N5 volume into an existing
+    /// ndarray view, reading blocks in serial as necessary.
+    ///
+    /// Assumes blocks are column-major. The array can be any order, but column-
+    /// major will be more efficient.
+    fn read_ndarray_into<'a, T>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        bbox: &BoundingBox,
+        mut arr: ndarray::ArrayViewMut<'a, T, ndarray::Dim<ndarray::IxDynImpl>>,
+    ) -> Result<(), Error>
+        where VecDataBlock<T>: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock,
+            T: ReflectedType + num_traits::identities::Zero {
+
+        if bbox.offset.len() != data_attrs.get_ndim() || data_attrs.get_ndim() != arr.ndim() {
             return Err(Error::new(ErrorKind::InvalidData, "Wrong number of dimensions"));
         }
 
-        let mut arr = Array::zeros(bbox.size_ndarray_shape().f());
+        if bbox.size_ndarray_shape().as_slice() != arr.shape() {
+            return Err(Error::new(ErrorKind::InvalidData, "Bounding box and array have different shape"));
+        }
+
         let mut block_buff_opt: Option<VecDataBlock<T>> = None;
 
         for coord in data_attrs.bounded_coord_iter(bbox) {
@@ -212,7 +237,7 @@ pub trait N5NdarrayReader : N5Reader {
             }
         }
 
-        Ok(arr)
+        Ok(())
     }
 }
 

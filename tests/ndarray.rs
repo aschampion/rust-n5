@@ -143,6 +143,11 @@ fn test_write_read_ndarray() {
 
     let bbox = BoundingBox::new(offset, arr_shape.iter().map(|s| *s as u64).collect());
     let a = n.read_ndarray::<i32>("test/dataset/group", &data_attrs, &bbox).unwrap();
+    // Also test c-order.
+    let mut a_c = Array::zeros(bbox.size_ndarray_shape().as_slice());
+    n.read_ndarray_into::<i32>("test/dataset/group", &data_attrs, &bbox, a_c.view_mut()).unwrap();
 
     assert_eq!(array, a);
+    assert_eq!(array, a_c);
+    assert_eq!(a, a_c);
 }
