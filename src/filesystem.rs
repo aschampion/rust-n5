@@ -95,8 +95,9 @@ impl N5Filesystem {
     }
 
     pub fn get_attributes(&self, path_name: &str) -> Result<Value> {
-        if self.exists(path_name)? {
-            let attr_path = self.get_path(path_name)?.join(ATTRIBUTES_FILE);
+        let path = self.get_path(path_name)?;
+        if path.is_dir() {
+            let attr_path = path.join(ATTRIBUTES_FILE);
 
             if attr_path.exists() && attr_path.is_file() {
                 let file = File::open(attr_path)?;
@@ -116,30 +117,39 @@ impl N5Filesystem {
         // Note: cannot use `canonicalize` on both the constructed dataset path
         // and `base_path` and check `starts_with`, because `canonicalize` also
         // requires the path exist.
-        use std::path::Component;
+        use std::path::{Component, Path};
 
-        // TODO: cleanup?
-        let data_path = PathBuf::from(path_name);
-        let mut nest: i32 = 0;
-        let mut canon_path = PathBuf::from(&self.base_path);
-        for component in data_path.components() {
-            match component {
-                Component::Prefix(_) => return Err(Error::new(
+        // Normalize the path to be relative.
+        let mut components = Path::new(path_name).components();
+        while components.as_path().has_root() {
+            match components.next() {
+                Some(Component::Prefix(_)) => return Err(Error::new(
                     ErrorKind::NotFound,
                     "Path name is outside this N5 filesystem on a prefix path")),
-                Component::RootDir => {nest = 0; canon_path.clear(); canon_path.push(&self.base_path); }
+                Some(Component::RootDir) => (),
+                // This should be unreachable.
+                _ => return Err(Error::new(ErrorKind::NotFound, "Path is malformed")),
+            }
+        }
+        let unrooted_path = components.as_path();
+
+        // Check that the path is inside the container's base path.
+        let mut nest: i32 = 0;
+        for component in unrooted_path.components() {
+            match component {
+                // This should be unreachable.
+                Component::Prefix(_) | Component::RootDir => return Err(Error::new(ErrorKind::NotFound, "Path is malformed")),
                 Component::CurDir => continue,
-                Component::ParentDir => {nest -= 1; canon_path.pop(); },
-                Component::Normal(p) => {nest += 1; canon_path.push(p)},
+                Component::ParentDir => nest -= 1,
+                Component::Normal(_) => nest += 1,
             };
         }
 
         if nest < 0 {
             Err(Error::new(ErrorKind::NotFound, "Path name is outside this N5 filesystem"))
         } else {
-            Ok(canon_path)
+            Ok(self.base_path.join(unrooted_path))
         }
-
     }
 
     fn get_data_block_path(&self, path_name: &str, grid_position: &[u64]) -> Result<PathBuf> {
@@ -428,6 +438,11 @@ mod tests {
         let create = wrapper.as_ref();
 
         assert!(create.get_path("/").is_ok());
+        assert_eq!(create.get_path("/").unwrap(), create.get_path("").unwrap());
+        assert!(create.get_path("/foo/bar").is_ok());
+        assert_eq!(create.get_path("/foo/bar").unwrap(), create.get_path("foo/bar").unwrap());
+        assert!(create.get_path("//").is_ok());
+        assert_eq!(create.get_path("//").unwrap(), create.get_path("").unwrap());
         assert!(create.get_path("/..").is_err());
         assert!(create.get_path("..").is_err());
         assert!(create.get_path("foo/bar/baz/../../..").is_ok());
