@@ -146,8 +146,8 @@ impl Sub<&GridCoord> for BoundingBox {
 }
 
 pub trait N5NdarrayReader : N5Reader {
-    /// Read an abitrary bounding box from an N5 volume into an ndarray, reading
-    /// blocks in serial as necessary.
+    /// Read an arbitrary bounding box from an N5 volume into an ndarray,
+    /// reading blocks in serial as necessary.
     ///
     /// Assumes blocks are column-major and returns a column-major ndarray.
     fn read_ndarray<T>(
@@ -166,7 +166,7 @@ pub trait N5NdarrayReader : N5Reader {
         Ok(arr)
     }
 
-    /// Read an abitrary bounding box from an N5 volume into an existing
+    /// Read an arbitrary bounding box from an N5 volume into an existing
     /// ndarray view, reading blocks in serial as necessary.
     ///
     /// Assumes blocks are column-major. The array can be any order, but column-
@@ -245,7 +245,7 @@ impl<T: N5Reader> N5NdarrayReader for T {}
 
 
 pub trait N5NdarrayWriter : N5Writer {
-    /// Write an abitrary bounding box from an ndarray into an N5 volume,
+    /// Write an arbitrary bounding box from an ndarray into an N5 volume,
     /// writing blocks in serial as necessary.
     fn write_ndarray<'a, T, A>(
         &self,
@@ -285,7 +285,7 @@ pub trait N5NdarrayWriter : N5Writer {
             if write_bb == nom_block_bb {
 
                 // No need to read whether there is an extant block if it is
-                // going to be entirely overwrriten.
+                // going to be entirely overwriten.
                 block_vec.clear();
                 block_vec.extend(arr_view.t().iter().cloned());
                 let block = VecDataBlock::new(write_bb.size_block(), coord.into(), block_vec);
