@@ -176,7 +176,27 @@ pub trait N5NdarrayReader : N5Reader {
         path_name: &str,
         data_attrs: &DatasetAttributes,
         bbox: &BoundingBox,
+        arr: ndarray::ArrayViewMut<'a, T, ndarray::Dim<ndarray::IxDynImpl>>,
+    ) -> Result<(), Error>
+        where VecDataBlock<T>: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock,
+            T: ReflectedType + num_traits::identities::Zero {
+
+        self.read_ndarray_into_with_buffer(path_name, data_attrs, bbox, arr, &mut None)
+    }
+
+    /// Read an arbitrary bounding box from an N5 volume into an existing
+    /// ndarray view, reading blocks in serial as necessary into a provided
+    /// buffer.
+    ///
+    /// Assumes blocks are column-major. The array can be any order, but column-
+    /// major will be more efficient.
+    fn read_ndarray_into_with_buffer<'a, T>(
+        &self,
+        path_name: &str,
+        data_attrs: &DatasetAttributes,
+        bbox: &BoundingBox,
         mut arr: ndarray::ArrayViewMut<'a, T, ndarray::Dim<ndarray::IxDynImpl>>,
+        block_buff_opt: &mut Option<VecDataBlock<T>>,
     ) -> Result<(), Error>
         where VecDataBlock<T>: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock,
             T: ReflectedType + num_traits::identities::Zero {
@@ -189,14 +209,12 @@ pub trait N5NdarrayReader : N5Reader {
             return Err(Error::new(ErrorKind::InvalidData, "Bounding box and array have different shape"));
         }
 
-        let mut block_buff_opt: Option<VecDataBlock<T>> = None;
-
         for coord in data_attrs.bounded_coord_iter(bbox) {
 
             let grid_pos = GridCoord::from(&coord[..]);
             let is_block = match block_buff_opt {
                 None => {
-                    block_buff_opt = self.read_block(path_name, data_attrs, grid_pos)?;
+                    *block_buff_opt = self.read_block(path_name, data_attrs, grid_pos)?;
                     block_buff_opt.is_some()
                 },
                 Some(ref mut block_buff) => {
