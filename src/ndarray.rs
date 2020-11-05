@@ -404,6 +404,8 @@ impl DatasetAttributes {
 }
 
 impl<T: ReflectedType, C> SliceDataBlock<T, C> {
+    /// Get the bounding box of the occupied extent of this block, which may
+    /// be smaller than the nominal bounding box expected from the dataset.
     pub fn get_bounds(&self, data_attrs: &DatasetAttributes) -> BoundingBox {
         let mut bbox = data_attrs.get_block_bounds(&self.grid_position);
         bbox.size = self.size.iter().cloned().map(u64::from).collect();
