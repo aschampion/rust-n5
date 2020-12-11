@@ -1,6 +1,12 @@
-use std::io::{Read, Write};
+use std::io::{
+    Read,
+    Write,
+};
 
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use xz2::read::XzDecoder;
 use xz2::write::XzEncoder;
 

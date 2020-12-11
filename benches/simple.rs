@@ -3,12 +3,19 @@
 
 extern crate test;
 
-use rand::{distributions::Standard, Rng};
+use rand::{
+    distributions::Standard,
+    Rng,
+};
 use test::Bencher;
 
 use n5::prelude::*;
 use n5::smallvec::smallvec;
-use n5::{DefaultBlock, DefaultBlockReader, DefaultBlockWriter};
+use n5::{
+    DefaultBlock,
+    DefaultBlockReader,
+    DefaultBlockWriter,
+};
 
 fn test_block_compression_rw<T>(compression: compression::CompressionType, b: &mut Bencher)
 where

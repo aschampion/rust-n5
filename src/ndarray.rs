@@ -1,18 +1,41 @@
 use std::cmp;
-use std::io::{Error, ErrorKind};
+use std::io::{
+    Error,
+    ErrorKind,
+};
 use std::ops::Sub;
 
 use itertools::Itertools;
-use ndarray::{Array, ArrayView, IxDyn, ShapeBuilder, SliceInfo};
+use ndarray::{
+    Array,
+    ArrayView,
+    IxDyn,
+    ShapeBuilder,
+    SliceInfo,
+};
 
 use crate::{
-    BlockCoord, CoordVec, DataBlock, DatasetAttributes, GridCoord, N5Reader, N5Writer,
-    ReadableDataBlock, ReflectedType, ReinitDataBlock, SliceDataBlock, VecDataBlock,
+    BlockCoord,
+    CoordVec,
+    DataBlock,
+    DatasetAttributes,
+    GridCoord,
+    N5Reader,
+    N5Writer,
+    ReadableDataBlock,
+    ReflectedType,
+    ReinitDataBlock,
+    SliceDataBlock,
+    VecDataBlock,
     WriteableDataBlock,
 };
 
 pub mod prelude {
-    pub use super::{BoundingBox, N5NdarrayReader, N5NdarrayWriter};
+    pub use super::{
+        BoundingBox,
+        N5NdarrayReader,
+        N5NdarrayWriter,
+    };
 }
 
 /// Specifes the extents of an axis-aligned bounding box.

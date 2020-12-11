@@ -1,9 +1,15 @@
-use std::io::{Read, Write};
+use std::io::{
+    Read,
+    Write,
+};
 
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression as GzCompression;
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 use super::Compression;
 

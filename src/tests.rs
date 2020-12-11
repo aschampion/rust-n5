@@ -1,5 +1,8 @@
 use super::*;
-use std::io::{Cursor, Result};
+use std::io::{
+    Cursor,
+    Result,
+};
 
 use serde_json::json;
 

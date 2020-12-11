@@ -14,12 +14,23 @@ doc_comment::doctest!("../README.md");
 #[macro_use]
 pub extern crate smallvec;
 
-use std::io::{Error, ErrorKind};
+use std::io::{
+    Error,
+    ErrorKind,
+};
 use std::marker::PhantomData;
 use std::time::SystemTime;
 
-use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
+use byteorder::{
+    BigEndian,
+    ByteOrder,
+    ReadBytesExt,
+    WriteBytesExt,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use smallvec::SmallVec;
 
 use crate::compression::Compression;

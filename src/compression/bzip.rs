@@ -1,9 +1,15 @@
-use std::io::{Read, Write};
+use std::io::{
+    Read,
+    Write,
+};
 
 use bzip2::read::BzDecoder;
 use bzip2::write::BzEncoder;
 use bzip2::Compression as BzCompression;
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 use super::Compression;
 

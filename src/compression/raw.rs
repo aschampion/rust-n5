@@ -1,6 +1,12 @@
-use std::io::{Read, Write};
+use std::io::{
+    Read,
+    Write,
+};
 
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 use super::Compression;
 

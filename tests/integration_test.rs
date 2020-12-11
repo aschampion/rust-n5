@@ -1,4 +1,7 @@
-use rand::{distributions::Standard, Rng};
+use rand::{
+    distributions::Standard,
+    Rng,
+};
 use smallvec::smallvec;
 
 use n5::prelude::*;

@@ -1,7 +1,20 @@
-use std::io::{Read, Result, Write};
+use std::io::{
+    Read,
+    Result,
+    Write,
+};
 
-use lz4::{BlockMode, BlockSize, Decoder, Encoder, EncoderBuilder};
-use serde::{Deserialize, Serialize};
+use lz4::{
+    BlockMode,
+    BlockSize,
+    Decoder,
+    Encoder,
+    EncoderBuilder,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 use super::Compression;
 

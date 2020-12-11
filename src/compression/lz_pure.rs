@@ -1,7 +1,17 @@
-use std::io::{Read, Result, Write};
+use std::io::{
+    Read,
+    Result,
+    Write,
+};
 
-use lz_fear::framed::{CompressionSettings, LZ4FrameReader};
-use serde::{Deserialize, Serialize};
+use lz_fear::framed::{
+    CompressionSettings,
+    LZ4FrameReader,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 use super::Compression;
 

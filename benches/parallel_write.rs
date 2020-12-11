@@ -17,12 +17,21 @@ extern crate test;
 use std::fs::File;
 use std::io::BufReader;
 
-use futures::{self, Future};
-use futures_cpupool::{CpuFuture, CpuPool};
+use futures::{
+    self,
+    Future,
+};
+use futures_cpupool::{
+    CpuFuture,
+    CpuPool,
+};
 use lazy_static::lazy_static;
 use tempdir;
 use test::Bencher;
-use tiff::decoder::{Decoder, DecodingResult};
+use tiff::decoder::{
+    Decoder,
+    DecodingResult,
+};
 
 use n5::prelude::*;
 use n5::smallvec::smallvec;

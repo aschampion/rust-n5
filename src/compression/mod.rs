@@ -1,8 +1,14 @@
 //! Compression for block voxel data.
 
-use std::io::{Read, Write};
+use std::io::{
+    Read,
+    Write,
+};
 
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 #[cfg(feature = "bzip")]
 pub mod bzip;

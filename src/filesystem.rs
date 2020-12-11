@@ -1,18 +1,47 @@
 //! A filesystem-backed N5 container.
 
-use std::fs::{self, File};
-use std::io::{BufReader, BufWriter, Error, ErrorKind, Read, Result, Seek, SeekFrom};
+use std::fs::{
+    self,
+    File,
+};
+use std::io::{
+    BufReader,
+    BufWriter,
+    Error,
+    ErrorKind,
+    Read,
+    Result,
+    Seek,
+    SeekFrom,
+};
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use fs2::FileExt;
-use serde_json::{self, json, Value};
+use serde_json::{
+    self,
+    json,
+    Value,
+};
 use walkdir::WalkDir;
 
 use crate::{
-    is_version_compatible, DataBlock, DataBlockMetadata, DatasetAttributes, DefaultBlockReader,
-    DefaultBlockWriter, GridCoord, N5Lister, N5Reader, N5Writer, ReadableDataBlock, ReflectedType,
-    ReinitDataBlock, VecDataBlock, Version, WriteableDataBlock,
+    is_version_compatible,
+    DataBlock,
+    DataBlockMetadata,
+    DatasetAttributes,
+    DefaultBlockReader,
+    DefaultBlockWriter,
+    GridCoord,
+    N5Lister,
+    N5Reader,
+    N5Writer,
+    ReadableDataBlock,
+    ReflectedType,
+    ReinitDataBlock,
+    VecDataBlock,
+    Version,
+    WriteableDataBlock,
 };
 
 /// Name of the attributes file stored in the container root and dataset dirs.
@@ -92,7 +121,10 @@ impl N5Filesystem {
         // Note: cannot use `canonicalize` on both the constructed dataset path
         // and `base_path` and check `starts_with`, because `canonicalize` also
         // requires the path exist.
-        use std::path::{Component, Path};
+        use std::path::{
+            Component,
+            Path,
+        };
 
         // Normalize the path to be relative.
         let mut components = Path::new(path_name).components();
@@ -394,7 +426,10 @@ impl N5Writer for N5Filesystem {
 mod tests {
     use super::*;
     use crate::test_backend;
-    use crate::tests::{ContextWrapper, N5Testable};
+    use crate::tests::{
+        ContextWrapper,
+        N5Testable,
+    };
     use tempdir::TempDir;
 
     impl crate::tests::N5Testable for N5Filesystem {
