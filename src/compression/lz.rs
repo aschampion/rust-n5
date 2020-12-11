@@ -1,21 +1,9 @@
 use std::io::{Read, Result, Write};
 
-use lz4::{
-    BlockMode,
-    BlockSize,
-    Decoder,
-    Encoder,
-    EncoderBuilder,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use lz4::{BlockMode, BlockSize, Decoder, Encoder, EncoderBuilder};
+use serde::{Deserialize, Serialize};
 
-use super::{
-    Compression,
-};
-
+use super::Compression;
 
 // From: https://github.com/bozaro/lz4-rs/issues/9
 // Kludge to finish Lz4 encoder on Drop.
@@ -41,7 +29,6 @@ impl<W: Write> Drop for Wrapper<W> {
     }
 }
 
-
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Lz4Compression {
@@ -65,7 +52,9 @@ impl Lz4Compression {
     }
 }
 
-fn default_lz4_block_size() -> i32 {65_536}
+fn default_lz4_block_size() -> i32 {
+    65_536
+}
 
 impl Default for Lz4Compression {
     fn default() -> Lz4Compression {
@@ -86,7 +75,7 @@ impl Compression for Lz4Compression {
             .block_mode(BlockMode::Independent)
             .build(w)
             .expect("TODO");
-        Box::new(Wrapper {s: Some(encoder)})
+        Box::new(Wrapper { s: Some(encoder) })
     }
 }
 
@@ -95,6 +84,7 @@ mod tests {
     use super::*;
     use crate::compression::CompressionType;
 
+    #[rustfmt::skip]
     const TEST_BLOCK_I16_LZ4: [u8; 47] = [
         0x00, 0x00,
         0x00, 0x03,
@@ -115,14 +105,16 @@ mod tests {
     fn test_read_doc_spec_block() {
         crate::tests::test_read_doc_spec_block(
             TEST_BLOCK_I16_LZ4.as_ref(),
-            CompressionType::Lz4(Lz4Compression::default()));
+            CompressionType::Lz4(Lz4Compression::default()),
+        );
     }
 
     #[test]
     fn test_write_doc_spec_block() {
         crate::tests::test_write_doc_spec_block(
             TEST_BLOCK_I16_LZ4.as_ref(),
-            CompressionType::Lz4(Lz4Compression::default()));
+            CompressionType::Lz4(Lz4Compression::default()),
+        );
     }
 
     #[test]

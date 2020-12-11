@@ -1,17 +1,11 @@
 use std::io::{Read, Write};
 
-use bzip2::Compression as BzCompression;
 use bzip2::read::BzDecoder;
 use bzip2::write::BzEncoder;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use bzip2::Compression as BzCompression;
+use serde::{Deserialize, Serialize};
 
-use super::{
-    Compression,
-};
-
+use super::Compression;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -20,7 +14,9 @@ pub struct Bzip2Compression {
     block_size: u8,
 }
 
-fn default_bzip_block_size() -> u8 {9}
+fn default_bzip_block_size() -> u8 {
+    9
+}
 
 impl Default for Bzip2Compression {
     fn default() -> Bzip2Compression {
@@ -36,7 +32,10 @@ impl Compression for Bzip2Compression {
     }
 
     fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<dyn Write + 'a> {
-        Box::new(BzEncoder::new(w, BzCompression::new(u32::from(self.block_size))))
+        Box::new(BzEncoder::new(
+            w,
+            BzCompression::new(u32::from(self.block_size)),
+        ))
     }
 }
 
@@ -46,6 +45,7 @@ mod tests {
     use crate::compression::CompressionType;
 
     // Example from the n5 documentation spec.
+    #[rustfmt::skip]
     const TEST_BLOCK_I16_BZIP2: [u8; 59] = [
         0x00, 0x00,
         0x00, 0x03,
@@ -69,7 +69,8 @@ mod tests {
     fn test_read_doc_spec_block() {
         crate::tests::test_read_doc_spec_block(
             TEST_BLOCK_I16_BZIP2.as_ref(),
-            CompressionType::Bzip2(Bzip2Compression::default()));
+            CompressionType::Bzip2(Bzip2Compression::default()),
+        );
     }
 
     #[test]
@@ -78,11 +79,14 @@ mod tests {
     fn test_write_doc_spec_block() {
         crate::tests::test_write_doc_spec_block(
             TEST_BLOCK_I16_BZIP2.as_ref(),
-            CompressionType::Bzip2(Bzip2Compression::default()));
+            CompressionType::Bzip2(Bzip2Compression::default()),
+        );
     }
 
     #[test]
     fn test_rw() {
-        crate::tests::test_block_compression_rw(CompressionType::Bzip2(Bzip2Compression::default()));
+        crate::tests::test_block_compression_rw(
+            CompressionType::Bzip2(Bzip2Compression::default()),
+        );
     }
 }

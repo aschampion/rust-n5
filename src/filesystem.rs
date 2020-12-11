@@ -1,55 +1,22 @@
 //! A filesystem-backed N5 container.
 
-use std::fs::{
-    self,
-    File,
-};
-use std::io::{
-    Error,
-    ErrorKind,
-    BufReader,
-    BufWriter,
-    Read,
-    Result,
-    Seek,
-    SeekFrom,
-};
-use std::path::{
-    PathBuf,
-};
+use std::fs::{self, File};
+use std::io::{BufReader, BufWriter, Error, ErrorKind, Read, Result, Seek, SeekFrom};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use fs2::FileExt;
-use serde_json::{
-    self,
-    json,
-    Value,
-};
+use serde_json::{self, json, Value};
 use walkdir::WalkDir;
 
 use crate::{
-    is_version_compatible,
-    DataBlock,
-    DataBlockMetadata,
-    DatasetAttributes,
-    DefaultBlockReader,
-    DefaultBlockWriter,
-    GridCoord,
-    N5Lister,
-    N5Reader,
-    N5Writer,
-    ReadableDataBlock,
-    ReflectedType,
-    ReinitDataBlock,
-    VecDataBlock,
-    Version,
-    WriteableDataBlock,
+    is_version_compatible, DataBlock, DataBlockMetadata, DatasetAttributes, DefaultBlockReader,
+    DefaultBlockWriter, GridCoord, N5Lister, N5Reader, N5Writer, ReadableDataBlock, ReflectedType,
+    ReinitDataBlock, VecDataBlock, Version, WriteableDataBlock,
 };
-
 
 /// Name of the attributes file stored in the container root and dataset dirs.
 const ATTRIBUTES_FILE: &str = "attributes.json";
-
 
 /// A filesystem-backed N5 container.
 #[derive(Clone, Debug)]
@@ -68,7 +35,7 @@ impl N5Filesystem {
             let version = reader.get_version()?;
 
             if !is_version_compatible(&crate::VERSION, &version) {
-                return Err(Error::new(ErrorKind::Other, "TODO: Incompatible version"))
+                return Err(Error::new(ErrorKind::Other, "TODO: Incompatible version"));
             }
         }
 
@@ -85,10 +52,18 @@ impl N5Filesystem {
 
         fs::create_dir_all(base_path)?;
 
-        if reader.get_version().map(|v| !is_version_compatible(&crate::VERSION, &v)).unwrap_or(false) {
-            return Err(Error::new(ErrorKind::Other, "TODO: Incompatible version"))
+        if reader
+            .get_version()
+            .map(|v| !is_version_compatible(&crate::VERSION, &v))
+            .unwrap_or(false)
+        {
+            return Err(Error::new(ErrorKind::Other, "TODO: Incompatible version"));
         } else {
-            reader.set_attribute("", crate::VERSION_ATTRIBUTE_KEY.to_owned(), crate::VERSION.to_string())?;
+            reader.set_attribute(
+                "",
+                crate::VERSION_ATTRIBUTE_KEY.to_owned(),
+                crate::VERSION.to_string(),
+            )?;
         }
 
         Ok(reader)
@@ -123,9 +98,12 @@ impl N5Filesystem {
         let mut components = Path::new(path_name).components();
         while components.as_path().has_root() {
             match components.next() {
-                Some(Component::Prefix(_)) => return Err(Error::new(
-                    ErrorKind::NotFound,
-                    "Path name is outside this N5 filesystem on a prefix path")),
+                Some(Component::Prefix(_)) => {
+                    return Err(Error::new(
+                        ErrorKind::NotFound,
+                        "Path name is outside this N5 filesystem on a prefix path",
+                    ))
+                }
                 Some(Component::RootDir) => (),
                 // This should be unreachable.
                 _ => return Err(Error::new(ErrorKind::NotFound, "Path is malformed")),
@@ -138,7 +116,9 @@ impl N5Filesystem {
         for component in unrooted_path.components() {
             match component {
                 // This should be unreachable.
-                Component::Prefix(_) | Component::RootDir => return Err(Error::new(ErrorKind::NotFound, "Path is malformed")),
+                Component::Prefix(_) | Component::RootDir => {
+                    return Err(Error::new(ErrorKind::NotFound, "Path is malformed"))
+                }
                 Component::CurDir => continue,
                 Component::ParentDir => nest -= 1,
                 Component::Normal(_) => nest += 1,
@@ -146,7 +126,10 @@ impl N5Filesystem {
         }
 
         if nest < 0 {
-            Err(Error::new(ErrorKind::NotFound, "Path name is outside this N5 filesystem"))
+            Err(Error::new(
+                ErrorKind::NotFound,
+                "Path name is outside this N5 filesystem",
+            ))
         } else {
             Ok(self.base_path.join(unrooted_path))
         }
@@ -170,12 +153,14 @@ impl N5Filesystem {
 impl N5Reader for N5Filesystem {
     fn get_version(&self) -> Result<Version> {
         // TODO: dedicated error type should clean this up.
-        Ok(Version::from_str(self
-                .get_attributes("")?
+        Ok(Version::from_str(
+            self.get_attributes("")?
                 .get(crate::VERSION_ATTRIBUTE_KEY)
-                    .ok_or_else(|| Error::new(ErrorKind::NotFound, "Version attribute not present"))?
-                .as_str().unwrap_or("")
-            ).unwrap())
+                .ok_or_else(|| Error::new(ErrorKind::NotFound, "Version attribute not present"))?
+                .as_str()
+                .unwrap_or(""),
+        )
+        .unwrap())
     }
 
     fn get_dataset_attributes(&self, path_name: &str) -> Result<DatasetAttributes> {
@@ -190,7 +175,8 @@ impl N5Reader for N5Filesystem {
     }
 
     fn get_block_uri(&self, path_name: &str, grid_position: &[u64]) -> Result<String> {
-        self.get_data_block_path(path_name, grid_position)?.to_str()
+        self.get_data_block_path(path_name, grid_position)?
+            .to_str()
             // TODO: could use URL crate and `from_file_path` here.
             .map(|s| format!("file://{}", s))
             .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Paths must be UTF-8"))
@@ -202,23 +188,31 @@ impl N5Reader for N5Filesystem {
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
     ) -> Result<Option<VecDataBlock<T>>>
-            where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock,
-                  T: ReflectedType {
+    where
+        VecDataBlock<T>: DataBlock<T> + ReadableDataBlock,
+        T: ReflectedType,
+    {
         let block_file = self.get_data_block_path(path_name, &grid_position)?;
         if block_file.is_file() {
             let file = File::open(block_file)?;
             file.lock_shared()?;
             let reader = BufReader::new(file);
-            Ok(Some(<crate::DefaultBlock as DefaultBlockReader<T, _>>::read_block(
-                reader,
-                data_attrs,
-                grid_position)?))
+            Ok(Some(
+                <crate::DefaultBlock as DefaultBlockReader<T, _>>::read_block(
+                    reader,
+                    data_attrs,
+                    grid_position,
+                )?,
+            ))
         } else {
             Ok(None)
         }
     }
 
-    fn read_block_into<T: ReflectedType, B: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock>(
+    fn read_block_into<
+        T: ReflectedType,
+        B: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock,
+    >(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
@@ -234,7 +228,8 @@ impl N5Reader for N5Filesystem {
                 reader,
                 data_attrs,
                 grid_position,
-                block)?;
+                block,
+            )?;
             Ok(Some(()))
         } else {
             Ok(None)
@@ -277,7 +272,11 @@ impl N5Lister for N5Filesystem {
         Ok(fs::read_dir(self.get_path(path_name)?)?
             .filter_map(|e| {
                 if let Ok(file) = e {
-                    if fs::metadata(file.path()).map(|f| f.file_type().is_dir()).ok() == Some(true) {
+                    if fs::metadata(file.path())
+                        .map(|f| f.file_type().is_dir())
+                        .ok()
+                        == Some(true)
+                    {
                         file.file_name().into_string().ok()
                     } else {
                         None
@@ -286,8 +285,7 @@ impl N5Lister for N5Filesystem {
                     None
                 }
             })
-            .collect()
-        )
+            .collect())
     }
 }
 
@@ -339,10 +337,7 @@ impl N5Writer for N5Filesystem {
         fs::create_dir_all(path)
     }
 
-    fn remove(
-        &self,
-        path_name: &str,
-    ) -> Result<()> {
+    fn remove(&self, path_name: &str) -> Result<()> {
         let path = self.get_path(path_name)?;
 
         for entry in WalkDir::new(path).contents_first(true) {
@@ -379,23 +374,14 @@ impl N5Writer for N5Filesystem {
         file.set_len(0)?;
 
         let buffer = BufWriter::new(file);
-        <crate::DefaultBlock as DefaultBlockWriter<T, _, _>>::write_block(
-                buffer,
-                data_attrs,
-                block)
+        <crate::DefaultBlock as DefaultBlockWriter<T, _, _>>::write_block(buffer, data_attrs, block)
     }
 
-    fn delete_block(
-        &self,
-        path_name: &str,
-        grid_position: &[u64],
-    ) -> Result<bool> {
+    fn delete_block(&self, path_name: &str, grid_position: &[u64]) -> Result<bool> {
         let path = self.get_data_block_path(path_name, grid_position)?;
 
         if path.exists() {
-            let file = fs::OpenOptions::new()
-                .read(true)
-                .open(&path)?;
+            let file = fs::OpenOptions::new().read(true).open(&path)?;
             file.lock_exclusive()?;
             fs::remove_file(&path)?;
         }
@@ -416,13 +402,10 @@ mod tests {
 
         fn temp_new_rw() -> Self::Wrapper {
             let dir = TempDir::new("rust_n5_tests").unwrap();
-            let n5 = N5Filesystem::open_or_create(dir.path())
-                .expect("Failed to create N5 filesystem");
+            let n5 =
+                N5Filesystem::open_or_create(dir.path()).expect("Failed to create N5 filesystem");
 
-            ContextWrapper {
-                context: dir,
-                n5,
-            }
+            ContextWrapper { context: dir, n5 }
         }
 
         fn open_reader(&self) -> Self {
@@ -440,7 +423,10 @@ mod tests {
         assert!(create.get_path("/").is_ok());
         assert_eq!(create.get_path("/").unwrap(), create.get_path("").unwrap());
         assert!(create.get_path("/foo/bar").is_ok());
-        assert_eq!(create.get_path("/foo/bar").unwrap(), create.get_path("foo/bar").unwrap());
+        assert_eq!(
+            create.get_path("/foo/bar").unwrap(),
+            create.get_path("foo/bar").unwrap()
+        );
         assert!(create.get_path("//").is_ok());
         assert_eq!(create.get_path("//").unwrap(), create.get_path("").unwrap());
         assert!(create.get_path("/..").is_err());
@@ -483,9 +469,13 @@ mod tests {
             smallvec![10, 10, 10],
             smallvec![5, 5, 5],
             crate::DataType::INT32,
-            crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
+            crate::compression::CompressionType::Raw(
+                crate::compression::raw::RawCompression::default(),
+            ),
         );
-        wrapper.n5.create_dataset("linked_dataset", &data_attrs)
+        wrapper
+            .n5
+            .create_dataset("linked_dataset", &data_attrs)
             .expect("Failed to create dataset");
         assert!(wrapper.n5.dataset_exists("linked_dataset").unwrap());
     }
@@ -495,8 +485,8 @@ mod tests {
         let dir = TempDir::new("rust_n5_tests").unwrap();
         let path_str = dir.path().to_str().unwrap();
 
-        let create = N5Filesystem::open_or_create(path_str)
-            .expect("Failed to create N5 filesystem");
+        let create =
+            N5Filesystem::open_or_create(path_str).expect("Failed to create N5 filesystem");
         let uri = create.get_block_uri("foo/bar", &vec![1, 2, 3]).unwrap();
         assert_eq!(uri, format!("file://{}/foo/bar/1/2/3", path_str));
     }
@@ -509,24 +499,31 @@ mod tests {
             smallvec![10, 10, 10],
             smallvec![5, 5, 5],
             crate::DataType::INT32,
-            crate::compression::CompressionType::Raw(crate::compression::raw::RawCompression::default()),
+            crate::compression::CompressionType::Raw(
+                crate::compression::raw::RawCompression::default(),
+            ),
         );
         let block_data: Vec<i32> = (0..125_i32).collect();
         let block_in = crate::SliceDataBlock::new(
             data_attrs.block_size.clone(),
             smallvec![0, 0, 0],
-            &block_data);
+            &block_data,
+        );
 
-        create.create_dataset("foo/bar", &data_attrs)
+        create
+            .create_dataset("foo/bar", &data_attrs)
             .expect("Failed to create dataset");
-        create.write_block("foo/bar", &data_attrs, &block_in)
+        create
+            .write_block("foo/bar", &data_attrs, &block_in)
             .expect("Failed to write block");
 
         let read = create.open_reader();
-        let block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 0])
+        let block_out = read
+            .read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 0])
             .expect("Failed to read block")
             .expect("Block is empty");
-        let missing_block_out = read.read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 1])
+        let missing_block_out = read
+            .read_block::<i32>("foo/bar", &data_attrs, smallvec![0, 0, 1])
             .expect("Failed to read block");
 
         assert_eq!(block_out.get_data(), &block_data[..]);
@@ -537,8 +534,10 @@ mod tests {
         let block_in = crate::SliceDataBlock::new(
             data_attrs.block_size.clone(),
             smallvec![0, 0, 0],
-            &block_data);
-        create.write_block("foo/bar", &data_attrs, &block_in)
+            &block_data,
+        );
+        create
+            .write_block("foo/bar", &data_attrs, &block_in)
             .expect("Failed to write block");
 
         let block_file = create.get_data_block_path("foo/bar", &[0, 0, 0]).unwrap();
@@ -548,7 +547,7 @@ mod tests {
         let header_len = 2 * std::mem::size_of::<u16>() + 4 * std::mem::size_of::<u32>();
         assert_eq!(
             metadata.len(),
-            (header_len + block_data.len() * std::mem::size_of::<i32>()) as u64);
-
+            (header_len + block_data.len() * std::mem::size_of::<i32>()) as u64
+        );
     }
 }

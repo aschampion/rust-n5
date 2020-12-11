@@ -1,17 +1,11 @@
 use std::io::{Read, Write};
 
-use flate2::Compression as GzCompression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use flate2::Compression as GzCompression;
+use serde::{Deserialize, Serialize};
 
-use super::{
-    Compression,
-};
-
+use super::Compression;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -35,7 +29,9 @@ impl GzipCompression {
     }
 }
 
-fn default_gzip_level() -> i32 {-1}
+fn default_gzip_level() -> i32 {
+    -1
+}
 
 impl Default for GzipCompression {
     fn default() -> GzipCompression {
@@ -61,6 +57,7 @@ mod tests {
     use crate::compression::CompressionType;
 
     // Example from the n5 documentation spec.
+    #[rustfmt::skip]
     const TEST_BLOCK_I16_GZIP: [u8; 48] = [
         0x00, 0x00,
         0x00, 0x03,
@@ -81,7 +78,8 @@ mod tests {
     fn test_read_doc_spec_block() {
         crate::tests::test_read_doc_spec_block(
             TEST_BLOCK_I16_GZIP.as_ref(),
-            CompressionType::Gzip(GzipCompression::default()));
+            CompressionType::Gzip(GzipCompression::default()),
+        );
     }
 
     #[test]
@@ -93,7 +91,8 @@ mod tests {
         fudge_test_block[25] = 255;
         crate::tests::test_write_doc_spec_block(
             &fudge_test_block,
-            CompressionType::Gzip(GzipCompression::default()));
+            CompressionType::Gzip(GzipCompression::default()),
+        );
     }
 
     #[test]

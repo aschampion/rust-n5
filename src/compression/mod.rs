@@ -2,13 +2,8 @@
 
 use std::io::{Read, Write};
 
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
-
-pub mod raw;
 #[cfg(feature = "bzip")]
 pub mod bzip;
 #[cfg(feature = "gzip")]
@@ -17,14 +12,16 @@ pub mod gzip;
 pub mod lz;
 #[cfg(feature = "lz_pure")]
 pub(self) mod lz_pure;
+pub mod raw;
 #[cfg(feature = "lz_pure")]
-pub mod lz { pub use super::lz_pure::*; }
+pub mod lz {
+    pub use super::lz_pure::*;
+}
 #[cfg(feature = "xz")]
 pub mod xz;
 
-
 /// Common interface for compressing writers and decompressing readers.
-pub trait Compression : Default {
+pub trait Compression: Default {
     fn decoder<'a, R: Read + 'a>(&self, r: R) -> Box<dyn Read + 'a>;
 
     fn encoder<'a, W: Write + 'a>(&self, w: W) -> Box<dyn Write + 'a>;
@@ -48,7 +45,9 @@ pub enum CompressionType {
 
 impl CompressionType {
     pub fn new<T: Compression>() -> CompressionType
-            where CompressionType: std::convert::From<T> {
+    where
+        CompressionType: std::convert::From<T>,
+    {
         T::default().into()
     }
 }
@@ -99,21 +98,25 @@ impl Compression for CompressionType {
 
 impl std::fmt::Display for CompressionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match *self {
-            CompressionType::Raw(_) => "Raw",
+        write!(
+            f,
+            "{}",
+            match *self {
+                CompressionType::Raw(_) => "Raw",
 
-            #[cfg(feature = "bzip")]
-            CompressionType::Bzip2(_) => "Bzip2",
+                #[cfg(feature = "bzip")]
+                CompressionType::Bzip2(_) => "Bzip2",
 
-            #[cfg(feature = "gzip")]
-            CompressionType::Gzip(_) => "Gzip",
+                #[cfg(feature = "gzip")]
+                CompressionType::Gzip(_) => "Gzip",
 
-            #[cfg(feature = "xz")]
-            CompressionType::Xz(_) => "Xz",
+                #[cfg(feature = "xz")]
+                CompressionType::Xz(_) => "Xz",
 
-            #[cfg(any(feature = "lz", feature = "lz_pure"))]
-            CompressionType::Lz4(_) => "Lz4",
-        })
+                #[cfg(any(feature = "lz", feature = "lz_pure"))]
+                CompressionType::Lz4(_) => "Lz4",
+            }
+        )
     }
 }
 
@@ -148,7 +151,7 @@ macro_rules! compression_from_impl {
                 CompressionType::$variant(c)
             }
         }
-    }
+    };
 }
 
 compression_from_impl!(Raw, raw::RawCompression);

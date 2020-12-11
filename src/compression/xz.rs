@@ -1,16 +1,10 @@
 use std::io::{Read, Write};
 
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 use xz2::read::XzDecoder;
 use xz2::write::XzEncoder;
 
-use super::{
-    Compression,
-};
-
+use super::Compression;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -19,7 +13,9 @@ pub struct XzCompression {
     preset: i32,
 }
 
-fn default_xz_preset() -> i32 {6}
+fn default_xz_preset() -> i32 {
+    6
+}
 
 impl Default for XzCompression {
     fn default() -> XzCompression {
@@ -46,6 +42,7 @@ mod tests {
     use crate::compression::CompressionType;
 
     // Example from the n5 documentation spec.
+    #[rustfmt::skip]
     const TEST_BLOCK_I16_XZ: [u8; 84] = [
         0x00, 0x00,
         0x00, 0x03,
@@ -75,14 +72,16 @@ mod tests {
     fn test_read_doc_spec_block() {
         crate::tests::test_read_doc_spec_block(
             TEST_BLOCK_I16_XZ.as_ref(),
-            CompressionType::Xz(XzCompression::default()));
+            CompressionType::Xz(XzCompression::default()),
+        );
     }
 
     #[test]
     fn test_write_doc_spec_block() {
         crate::tests::test_write_doc_spec_block(
             TEST_BLOCK_I16_XZ.as_ref(),
-            CompressionType::Xz(XzCompression::default()));
+            CompressionType::Xz(XzCompression::default()),
+        );
     }
 
     #[test]
