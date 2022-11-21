@@ -222,7 +222,7 @@ pub trait N5Writer: N5Reader {
 }
 
 fn u64_ceil_div(a: u64, b: u64) -> u64 {
-    (a + 1) / b + (if a % b != 0 { 1 } else { 0 })
+    (a + 1) / b + u64::from(a % b != 0)
 }
 
 /// Attributes of a tensor dataset.
