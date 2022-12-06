@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - The filesystem backend now returns platform correct `\`-separated URIs on Windows.
 - Increase MSRV 1.39 -> 1.56 for tool and dependency upgrades.
 - Updated `ndarray` from 0.13 to 0.15.
+- Updated `semver` from 0.9 to 1.0.
 
 ## [0.7.6] - 2020-10-26
 ### Added

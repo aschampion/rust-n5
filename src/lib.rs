@@ -56,13 +56,7 @@ pub type GridCoord = CoordVec<u64>;
 type N5Endian = BigEndian;
 
 /// Version of the Java N5 spec supported by this library.
-pub const VERSION: Version = Version {
-    major: 2,
-    minor: 1,
-    patch: 3,
-    pre: Vec::new(),
-    build: Vec::new(),
-};
+pub const VERSION: Version = Version::new(2, 1, 3);
 
 /// Determines whether a version of an N5 implementation is capable of accessing
 /// a version of an N5 container (`other`).
