@@ -15,7 +15,7 @@ categories = ["encoding", "filesystem", "science"]
 default = ["bzip", "filesystem", "gzip", "lz", "use_ndarray", "xz"]
 
 bzip = ["bzip2"]
-filesystem = ["fs2", "walkdir"]
+filesystem = ["fs2", "typed-path", "walkdir"]
 gzip = ["flate2"]
 lz = ["lz4"]
 lz_pure = ["lz-fear"]
@@ -37,6 +37,7 @@ ndarray = { version = "0.13", optional = true }
 num-traits = { version = "0.2", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 smallvec = { version = "1", features = ["serde"] }
+typed-path = { version = "0.1", optional = true }
 walkdir = { version = "2", optional = true }
 xz2 = { version = "0.1", optional = true }
 

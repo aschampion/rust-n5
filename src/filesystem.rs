@@ -121,39 +121,35 @@ impl N5Filesystem {
         // Note: cannot use `canonicalize` on both the constructed dataset path
         // and `base_path` and check `starts_with`, because `canonicalize` also
         // requires the path exist.
-        use std::path::{
-            Component,
-            Path,
+        use typed_path::unix::UnixComponent;
+        use typed_path::{
+            TryAsRef,
+            UnixEncoding,
+            UnixPath,
         };
 
         // Normalize the path to be relative.
-        let mut components = Path::new(path_name).components();
-        while components.as_path().has_root() {
+        let mut components = UnixPath::new(path_name).components();
+        while components.as_path::<UnixEncoding>().has_root() {
             match components.next() {
-                Some(Component::Prefix(_)) => {
-                    return Err(Error::new(
-                        ErrorKind::NotFound,
-                        "Path name is outside this N5 filesystem on a prefix path",
-                    ))
-                }
-                Some(Component::RootDir) => (),
+                Some(UnixComponent::RootDir) => (),
                 // This should be unreachable.
                 _ => return Err(Error::new(ErrorKind::NotFound, "Path is malformed")),
             }
         }
-        let unrooted_path = components.as_path();
+        let unrooted_path: &UnixPath = components.as_path();
 
         // Check that the path is inside the container's base path.
         let mut nest: i32 = 0;
         for component in unrooted_path.components() {
             match component {
                 // This should be unreachable.
-                Component::Prefix(_) | Component::RootDir => {
+                UnixComponent::RootDir => {
                     return Err(Error::new(ErrorKind::NotFound, "Path is malformed"))
                 }
-                Component::CurDir => continue,
-                Component::ParentDir => nest -= 1,
-                Component::Normal(_) => nest += 1,
+                UnixComponent::CurDir => continue,
+                UnixComponent::ParentDir => nest -= 1,
+                UnixComponent::Normal(_) => nest += 1,
             };
         }
 
@@ -163,7 +159,9 @@ impl N5Filesystem {
                 "Path name is outside this N5 filesystem",
             ))
         } else {
-            Ok(self.base_path.join(unrooted_path))
+            let native_path: typed_path::NativePathBuf =
+                unrooted_path.components().as_path().to_path_buf();
+            Ok(self.base_path.join(native_path.try_as_ref().unwrap()))
         }
     }
 

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 <!-- next-header -->
 
 ## [Unreleased]
+###
+- Minimal Windows filesystem support added.
+
 ### Changed
 - Increase MSRV 1.39 -> 1.56 for tool and dependency upgrades.
 
