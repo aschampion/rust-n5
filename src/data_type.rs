@@ -6,7 +6,6 @@ use serde::{
 use crate::BlockHeader;
 use crate::VecDataBlock;
 
-
 /// Data types representable in N5.
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -103,11 +102,7 @@ macro_rules! data_type_match {
 impl DataType {
     /// Boilerplate method for reflection of primitive type sizes.
     pub fn size_of(self) -> usize {
-        data_type_match!(self,
-            {
-                std::mem::size_of::<RsType>()
-            }
-        )
+        data_type_match!(self, { std::mem::size_of::<RsType>() })
     }
 }
 
@@ -125,9 +120,7 @@ impl std::fmt::Display for DataType {
 pub trait ReflectedType: Send + Sync + Clone + Default + 'static {
     const VARIANT: DataType;
 
-    fn create_data_block(
-        header: BlockHeader,
-    ) -> VecDataBlock<Self> {
+    fn create_data_block(header: BlockHeader) -> VecDataBlock<Self> {
         VecDataBlock::<Self>::new(
             header.size,
             header.grid_position,
@@ -141,20 +134,19 @@ macro_rules! reflected_type {
         impl ReflectedType for $d_type {
             const VARIANT: DataType = DataType::$d_name;
         }
-    }
+    };
 }
 
-reflected_type!(UINT8,  u8);
+reflected_type!(UINT8, u8);
 reflected_type!(UINT16, u16);
 reflected_type!(UINT32, u32);
 reflected_type!(UINT64, u64);
-reflected_type!(INT8,  i8);
+reflected_type!(INT8, i8);
 reflected_type!(INT16, i16);
 reflected_type!(INT32, i32);
 reflected_type!(INT64, i64);
 reflected_type!(FLOAT32, f32);
 reflected_type!(FLOAT64, f64);
-
 
 #[cfg(test)]
 mod tests {

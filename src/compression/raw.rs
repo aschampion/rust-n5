@@ -1,4 +1,7 @@
-use std::io::{Read, Write};
+use std::io::{
+    Read,
+    Write,
+};
 
 use serde::{
     Deserialize,
@@ -6,7 +9,6 @@ use serde::{
 };
 
 use super::Compression;
-
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug, Default)]
 pub struct RawCompression;
@@ -27,6 +29,7 @@ mod tests {
     use crate::compression::CompressionType;
 
     // Example from the n5 documentation spec.
+    #[rustfmt::skip]
     const TEST_BLOCK_I16_RAW: [u8; 28] = [
         0x00, 0x00,
         0x00, 0x03,
@@ -45,14 +48,16 @@ mod tests {
     fn test_read_doc_spec_block() {
         crate::tests::test_read_doc_spec_block(
             TEST_BLOCK_I16_RAW.as_ref(),
-            CompressionType::Raw(RawCompression));
+            CompressionType::Raw(RawCompression),
+        );
     }
 
     #[test]
     fn test_write_doc_spec_block() {
         crate::tests::test_write_doc_spec_block(
             TEST_BLOCK_I16_RAW.as_ref(),
-            CompressionType::Raw(RawCompression));
+            CompressionType::Raw(RawCompression),
+        );
     }
 
     #[test]

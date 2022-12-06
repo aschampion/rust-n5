@@ -12,9 +12,7 @@
 //! will take several hours to run.
 #![feature(test)]
 
-
 extern crate test;
-
 
 use std::fs::File;
 use std::io::BufReader;
@@ -38,7 +36,6 @@ use tiff::decoder::{
 use n5::prelude::*;
 use n5::smallvec::smallvec;
 
-
 lazy_static! {
     static ref TEST_IMAGE: Vec<i8> = {
         let mut pixels = Vec::with_capacity(163 * 163 * 93);
@@ -54,7 +51,7 @@ lazy_static! {
                     for p in img {
                         pixels.push(p as i8);
                     }
-                },
+                }
             }
 
             decoder.next_image().unwrap();
@@ -66,15 +63,12 @@ lazy_static! {
 const BLOCK_DIM: u32 = 64;
 const N_BLOCKS: u64 = 5;
 
-fn write<T, N5>(
-        n: &N5,
-        compression: &CompressionType,
-        block_data: &[T],
-        pool_size: usize,
-) where T: 'static + std::fmt::Debug + ReflectedType + PartialEq + Default + Sync + Send,
-        N5: N5Writer + Sync + Send + Clone + 'static,
-        SliceDataBlock<T, std::sync::Arc<[T]>>: n5::WriteableDataBlock {
-
+fn write<T, N5>(n: &N5, compression: &CompressionType, block_data: &[T], pool_size: usize)
+where
+    T: 'static + std::fmt::Debug + ReflectedType + PartialEq + Default + Sync + Send,
+    N5: N5Writer + Sync + Send + Clone + 'static,
+    SliceDataBlock<T, std::sync::Arc<[T]>>: n5::WriteableDataBlock,
+{
     let block_size = smallvec![BLOCK_DIM; 3];
     let data_attrs = DatasetAttributes::new(
         smallvec![u64::from(BLOCK_DIM) * N_BLOCKS; 3],
@@ -83,9 +77,11 @@ fn write<T, N5>(
         compression.clone(),
     );
 
-    let path_name = format!("dataset.{:?}.{}",
+    let path_name = format!(
+        "dataset.{:?}.{}",
         data_attrs.get_data_type(),
-        data_attrs.get_compression());
+        data_attrs.get_compression()
+    );
 
     n.create_dataset(&path_name, &data_attrs)
         .expect("Failed to create dataset");
@@ -104,10 +100,7 @@ fn write<T, N5>(
                 let pn = path_name.clone();
                 let da = data_attrs.clone();
                 all_jobs.push(pool.spawn_fn(move || {
-                    let block_in = SliceDataBlock::new(
-                        bs,
-                        smallvec![x, y, z],
-                        bd);
+                    let block_in = SliceDataBlock::new(bs, smallvec![x, y, z], bd);
                     ni.write_block(&pn, &da, &block_in)
                         .expect("Failed to write block");
                     Ok(0)
@@ -120,30 +113,36 @@ fn write<T, N5>(
 }
 
 fn bench_write_dtype_compression<T, C>(b: &mut Bencher, pool_size: usize)
-        where
-            T: 'static + ReflectedType + Default + PartialEq + std::fmt::Debug +
-                std::convert::From<i8> + Sync + Send,
-            C: compression::Compression,
-            CompressionType: std::convert::From<C>,
-            SliceDataBlock<T, std::sync::Arc<[T]>>: n5::WriteableDataBlock {
-
+where
+    T: 'static
+        + ReflectedType
+        + Default
+        + PartialEq
+        + std::fmt::Debug
+        + std::convert::From<i8>
+        + Sync
+        + Send,
+    C: compression::Compression,
+    CompressionType: std::convert::From<C>,
+    SliceDataBlock<T, std::sync::Arc<[T]>>: n5::WriteableDataBlock,
+{
     let dir = tempdir::TempDir::new("rust_n5_integration_tests").unwrap();
 
-    let n = N5Filesystem::open_or_create(dir.path())
-        .expect("Failed to create N5 filesystem");
+    let n = N5Filesystem::open_or_create(dir.path()).expect("Failed to create N5 filesystem");
     let compression = CompressionType::new::<C>();
     // TODO: load the test image data.
     // let block_data: Vec<T> = vec![T::default(); (BLOCK_DIM * BLOCK_DIM * BLOCK_DIM) as usize];
-    let block_data = TEST_IMAGE.iter().take((BLOCK_DIM * BLOCK_DIM * BLOCK_DIM) as usize)
+    let block_data = TEST_IMAGE
+        .iter()
+        .take((BLOCK_DIM * BLOCK_DIM * BLOCK_DIM) as usize)
         .map(|&v| T::from(v))
         .collect::<Vec<T>>();
 
     b.iter(|| write(&n, &compression, &block_data, pool_size));
 
-    b.bytes =
-        (BLOCK_DIM * BLOCK_DIM * BLOCK_DIM) as u64 *
-        (N_BLOCKS * N_BLOCKS * N_BLOCKS) as u64 *
-        std::mem::size_of::<T>() as u64;
+    b.bytes = (BLOCK_DIM * BLOCK_DIM * BLOCK_DIM) as u64
+        * (N_BLOCKS * N_BLOCKS * N_BLOCKS) as u64
+        * std::mem::size_of::<T>() as u64;
 }
 
 // 1 Thread. Can't macro this because of the concat_idents! limitation.

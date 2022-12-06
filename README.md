@@ -1,4 +1,4 @@
-# N5 [![Build Status](https://travis-ci.org/aschampion/rust-n5.svg?branch=master)](https://travis-ci.org/aschampion/rust-n5) [![Coverage](https://codecov.io/gh/aschampion/rust-n5/branch/master/graph/badge.svg)](https://codecov.io/gh/aschampion/rust-n5)
+# N [![Build Status](https://github.com/aschampion/rust-n5/actions/workflows/ci.yml/badge.svg)](https://github.com/aschampion/rust-n5/actions/workflows/ci.yml/) [![Coverage](https://codecov.io/gh/aschampion/rust-n5/branch/master/graph/badge.svg)](https://codecov.io/gh/aschampion/rust-n5)
 
 A (mostly pure) rust implementation of the [N5 "Not HDF5" n-dimensional tensor file system storage format](https://github.com/saalfeldlab/n5) created by the Saalfeld lab at Janelia Research Campus.
 
@@ -10,7 +10,7 @@ Compatible with Java N5 Version 2.1.3.
 
 ## Minimum supported Rust version (MSRV)
 
-Stable 1.39
+Stable 1.56
 
 ## Quick start
 

@@ -1,0 +1,17 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    uses: aschampion/gh-actions/.github/workflows/rust-test.yml@v0
+    with:
+      msrv: 1.56
+
+  semver-checks:
+    uses: aschampion/gh-actions/.github/workflows/rust-semver-checks.yml@v0
+
+  publish:
+    uses: aschampion/gh-actions/.github/workflows/rust-publish.yml@v0
+    needs: [test]
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/v')
+    secrets: inherit

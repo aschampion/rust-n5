@@ -5,17 +5,14 @@
 #![deny(missing_debug_implementations)]
 #![forbid(unsafe_code)]
 
-
 // TODO: this does not run the test for recent stable rust because `test`
 // is no longer set during doc tests. When 1.40 stabilizes and is the MSRV
 // this can be changed from `test` to `doctest` and will work correctly.
 #[cfg(all(test, feature = "filesystem"))]
 doc_comment::doctest!("../README.md");
 
-
 #[macro_use]
 pub extern crate smallvec;
-
 
 use std::io::{
     Error,
@@ -53,7 +50,6 @@ pub mod prelude;
 pub(crate) mod tests;
 
 pub use semver::Version;
-
 
 const COORD_SMALLVEC_SIZE: usize = 6;
 pub type CoordVec<T> = SmallVec<[T; COORD_SMALLVEC_SIZE]>;
@@ -123,8 +119,9 @@ pub trait N5Reader {
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
     ) -> Result<Option<VecDataBlock<T>>, Error>
-        where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock,
-              T: ReflectedType;
+    where
+        VecDataBlock<T>: DataBlock<T> + ReadableDataBlock,
+        T: ReflectedType;
 
     /// Read a single dataset block into an existing buffer.
     fn read_block_into<T: ReflectedType, B: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock>(
@@ -148,13 +145,13 @@ pub trait N5Reader {
 }
 
 /// Non-mutating operations on N5 containers that support group discoverability.
-pub trait N5Lister : N5Reader {
+pub trait N5Lister: N5Reader {
     /// List all groups (including datasets) in a group.
     fn list(&self, path_name: &str) -> Result<Vec<String>, Error>;
 }
 
 /// Mutating operations on N5 containers.
-pub trait N5Writer : N5Reader {
+pub trait N5Writer: N5Reader {
     /// Set a single attribute.
     fn set_attribute<T: Serialize>(
         &self, // TODO: should this be mut for semantics?
@@ -164,7 +161,10 @@ pub trait N5Writer : N5Reader {
     ) -> Result<(), Error> {
         self.set_attributes(
             path_name,
-            vec![(key, serde_json::to_value(attribute)?)].into_iter().collect())
+            vec![(key, serde_json::to_value(attribute)?)]
+                .into_iter()
+                .collect(),
+        )
     }
 
     /// Set a map of attributes.
@@ -192,11 +192,7 @@ pub trait N5Writer : N5Reader {
 
     /// Create a dataset. This will create the dataset group and attributes,
     /// but not populate any block data.
-    fn create_dataset(
-        &self,
-        path_name: &str,
-        data_attrs: &DatasetAttributes,
-    ) -> Result<(), Error> {
+    fn create_dataset(&self, path_name: &str, data_attrs: &DatasetAttributes) -> Result<(), Error> {
         self.create_group(path_name)?;
         self.set_dataset_attributes(path_name, data_attrs)
     }
@@ -209,10 +205,7 @@ pub trait N5Writer : N5Reader {
     /// Remove a group or dataset (directory and all contained files).
     ///
     /// This will wait on locks acquired by other writers or readers.
-    fn remove(
-        &self,
-        path_name: &str,
-    ) -> Result<(), Error>;
+    fn remove(&self, path_name: &str) -> Result<(), Error>;
 
     fn write_block<T: ReflectedType, B: DataBlock<T> + WriteableDataBlock>(
         &self,
@@ -225,16 +218,11 @@ pub trait N5Writer : N5Reader {
     ///
     /// Returns `true` if the block does not exist on the backend at the
     /// completion of the call.
-    fn delete_block(
-        &self,
-        path_name: &str,
-        grid_position: &[u64],
-    ) -> Result<bool, Error>;
+    fn delete_block(&self, path_name: &str, grid_position: &[u64]) -> Result<bool, Error>;
 }
 
-
 fn u64_ceil_div(a: u64, b: u64) -> u64 {
-    (a + 1) / b + (if a % b != 0 {1} else {0})
+    (a + 1) / b + u64::from(a % b != 0)
 }
 
 /// Attributes of a tensor dataset.
@@ -258,8 +246,11 @@ impl DatasetAttributes {
         data_type: DataType,
         compression: compression::CompressionType,
     ) -> DatasetAttributes {
-        assert_eq!(dimensions.len(), block_size.len(),
-            "Number of dataset dimensions must match number of block size dimensions.");
+        assert_eq!(
+            dimensions.len(),
+            block_size.len(),
+            "Number of dataset dimensions must match number of block size dimensions."
+        );
         DatasetAttributes {
             dimensions,
             block_size,
@@ -300,7 +291,8 @@ impl DatasetAttributes {
 
     /// Get the upper bound extent of grid coordinates.
     pub fn get_grid_extent(&self) -> GridCoord {
-        self.dimensions.iter()
+        self.dimensions
+            .iter()
             .zip(self.block_size.iter().cloned().map(u64::from))
             .map(|(d, b)| u64_ceil_div(*d, b))
             .collect()
@@ -336,13 +328,14 @@ impl DatasetAttributes {
     /// assert!(!attrs.in_bounds(&smallvec![5, 3, 2]));
     /// ```
     pub fn in_bounds(&self, grid_position: &GridCoord) -> bool {
-        self.dimensions.len() == grid_position.len() &&
-        self.get_grid_extent().iter()
-            .zip(grid_position.iter())
-            .all(|(&bound, &coord)| coord < bound)
+        self.dimensions.len() == grid_position.len()
+            && self
+                .get_grid_extent()
+                .iter()
+                .zip(grid_position.iter())
+                .all(|(&bound, &coord)| coord < bound)
     }
 }
-
 
 /// Unencoded, non-payload header of a data block.
 #[derive(Debug)]
@@ -466,7 +459,7 @@ macro_rules! vec_data_block_impl {
                 Ok(())
             }
         }
-    }
+    };
 }
 
 // Wrapper trait to erase a generic trait argument for consistent ByteOrder
@@ -522,11 +515,7 @@ const BLOCK_FIXED_LEN: u16 = 0;
 const BLOCK_VAR_LEN: u16 = 1;
 
 pub trait DefaultBlockHeaderReader<R: std::io::Read> {
-    fn read_block_header(
-        buffer: &mut R,
-        grid_position: GridCoord,
-    ) -> std::io::Result<BlockHeader> {
-
+    fn read_block_header(buffer: &mut R, grid_position: GridCoord) -> std::io::Result<BlockHeader> {
         let mode = buffer.read_u16::<N5Endian>()?;
         let ndim = buffer.read_u16::<N5Endian>()?;
         let mut size = smallvec![0; ndim as usize];
@@ -534,7 +523,7 @@ pub trait DefaultBlockHeaderReader<R: std::io::Read> {
         let num_el = match mode {
             BLOCK_FIXED_LEN => size.iter().product(),
             BLOCK_VAR_LEN => buffer.read_u32::<N5Endian>()?,
-            _ => return Err(Error::new(ErrorKind::InvalidData, "Unsupported block mode"))
+            _ => return Err(Error::new(ErrorKind::InvalidData, "Unsupported block mode")),
         };
 
         Ok(BlockHeader {
@@ -546,18 +535,22 @@ pub trait DefaultBlockHeaderReader<R: std::io::Read> {
 }
 
 /// Reads blocks from rust readers.
-pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHeaderReader<R> {
+pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>:
+    DefaultBlockHeaderReader<R>
+{
     fn read_block(
         mut buffer: R,
         data_attrs: &DatasetAttributes,
         grid_position: GridCoord,
     ) -> std::io::Result<VecDataBlock<T>>
-            where VecDataBlock<T>: DataBlock<T> + ReadableDataBlock {
-
+    where
+        VecDataBlock<T>: DataBlock<T> + ReadableDataBlock,
+    {
         if data_attrs.data_type != T::VARIANT {
             return Err(Error::new(
                 ErrorKind::InvalidInput,
-                "Attempt to create data block for wrong type."))
+                "Attempt to create data block for wrong type.",
+            ));
         }
         let header = Self::read_block_header(&mut buffer, grid_position)?;
 
@@ -574,11 +567,11 @@ pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHe
         grid_position: GridCoord,
         block: &mut B,
     ) -> std::io::Result<()> {
-
         if data_attrs.data_type != T::VARIANT {
             return Err(Error::new(
                 ErrorKind::InvalidInput,
-                "Attempt to create data block for wrong type."))
+                "Attempt to create data block for wrong type.",
+            ));
         }
         let header = Self::read_block_header(&mut buffer, grid_position)?;
 
@@ -591,21 +584,29 @@ pub trait DefaultBlockReader<T: ReflectedType, R: std::io::Read>: DefaultBlockHe
 }
 
 /// Writes blocks to rust writers.
-pub trait DefaultBlockWriter<T: ReflectedType, W: std::io::Write, B: DataBlock<T> + WriteableDataBlock> {
+pub trait DefaultBlockWriter<
+    T: ReflectedType,
+    W: std::io::Write,
+    B: DataBlock<T> + WriteableDataBlock,
+>
+{
     fn write_block(
         mut buffer: W,
         data_attrs: &DatasetAttributes,
         block: &B,
     ) -> std::io::Result<()> {
-
         if data_attrs.data_type != T::VARIANT {
             return Err(Error::new(
                 ErrorKind::InvalidInput,
-                "Attempt to write data block for wrong type."))
+                "Attempt to write data block for wrong type.",
+            ));
         }
 
-        let mode: u16 = if block.get_num_elements() == block.get_size().iter().product::<u32>()
-            {BLOCK_FIXED_LEN} else {BLOCK_VAR_LEN};
+        let mode: u16 = if block.get_num_elements() == block.get_size().iter().product::<u32>() {
+            BLOCK_FIXED_LEN
+        } else {
+            BLOCK_VAR_LEN
+        };
         buffer.write_u16::<N5Endian>(mode)?;
         buffer.write_u16::<N5Endian>(data_attrs.get_ndim() as u16)?;
         for i in block.get_size() {
@@ -630,4 +631,7 @@ pub trait DefaultBlockWriter<T: ReflectedType, W: std::io::Write, B: DataBlock<T
 pub struct DefaultBlock;
 impl<R: std::io::Read> DefaultBlockHeaderReader<R> for DefaultBlock {}
 impl<T: ReflectedType, R: std::io::Read> DefaultBlockReader<T, R> for DefaultBlock {}
-impl<T: ReflectedType, W: std::io::Write, B: DataBlock<T> + WriteableDataBlock> DefaultBlockWriter<T, W, B> for DefaultBlock {}
+impl<T: ReflectedType, W: std::io::Write, B: DataBlock<T> + WriteableDataBlock>
+    DefaultBlockWriter<T, W, B> for DefaultBlock
+{
+}
