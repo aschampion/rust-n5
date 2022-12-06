@@ -1,0 +1,11 @@
+publish = false
+pre-release-commit-message = "Version {{version}}"
+pre-release-replacements = [
+  {file="CHANGELOG.md", search="^## \\[Unreleased\\]", replace="## [{{version}}] - {{date}}", exactly=1},
+  {file="CHANGELOG.md", search="\\[Unreleased\\]", replace="[{{version}}]", min=1},
+  {file="CHANGELOG.md", search="\\.\\.\\.HEAD", replace="...{{tag_name}}", exactly=1},
+]
+post-release-replacements = [
+  {file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n## [Unreleased]\n\n", exactly=1},
+  {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://github.com/aschampion/rust-n5/compare/{{tag_name}}...HEAD", exactly=1},
+]
