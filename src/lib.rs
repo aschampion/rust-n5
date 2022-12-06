@@ -5,10 +5,7 @@
 #![deny(missing_debug_implementations)]
 #![forbid(unsafe_code)]
 
-// TODO: this does not run the test for recent stable rust because `test`
-// is no longer set during doc tests. When 1.40 stabilizes and is the MSRV
-// this can be changed from `test` to `doctest` and will work correctly.
-#[cfg(all(test, feature = "filesystem"))]
+#[cfg(all(doctest, feature = "filesystem"))]
 doc_comment::doctest!("../README.md");
 
 #[macro_use]
