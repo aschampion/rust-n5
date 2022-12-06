@@ -58,6 +58,10 @@ impl BoundingBox {
         self.size.iter().map(|n| *n as usize).collect()
     }
 
+    pub fn get_num_elements(&self) -> usize {
+        self.size.iter().map(|&d| d as usize).product()
+    }
+
     /// ```
     /// # use n5::ndarray::BoundingBox;
     /// # use n5::smallvec::smallvec;
@@ -299,7 +303,8 @@ pub trait N5NdarrayWriter: N5Writer {
             size: array.shape().iter().map(|n| *n as u64).collect(),
         };
 
-        let mut block_vec: Vec<T> = Vec::new();
+        let mut write_buff: Vec<T> = Vec::new();
+        let mut read_buff: Vec<T> = Vec::new();
 
         for coord in data_attrs.bounded_coord_iter(&bbox) {
             let grid_coord = GridCoord::from(&coord[..]);
@@ -314,24 +319,23 @@ pub trait N5NdarrayWriter: N5Writer {
             if write_bb == nom_block_bb {
                 // No need to read whether there is an extant block if it is
                 // going to be entirely overwriten.
-                block_vec.clear();
-                block_vec.extend(arr_view.t().iter().cloned());
-                let block = VecDataBlock::new(write_bb.size_block(), coord.into(), block_vec);
+                write_buff.clear();
+                write_buff.extend(arr_view.t().iter().cloned());
+                let block = VecDataBlock::new(write_bb.size_block(), coord.into(), write_buff);
 
                 self.write_block(path_name, data_attrs, &block)?;
-                block_vec = block.into_data();
+                write_buff = block.into_data();
             } else {
-                let block_opt = self.read_block(path_name, data_attrs, grid_coord.clone())?;
+                let mut block =
+                    VecDataBlock::new(write_bb.size_block(), grid_coord.clone(), read_buff);
+                let exists =
+                    self.read_block_into(path_name, data_attrs, grid_coord.clone(), &mut block)?;
 
-                let (block_bb, mut block_array) = match block_opt {
-                    Some(block) => {
+                let (block_bb, block_buff) = match exists {
+                    Some(()) => {
                         let block_bb = block.get_bounds(data_attrs);
-                        let block_array = Array::from_shape_vec(
-                            block_bb.size_ndarray_shape().f(),
-                            block.into_data(),
-                        )
-                        .expect("TODO: block ndarray failed");
-                        (block_bb, block_array)
+                        let block_buff = block.into_data();
+                        (block_bb, block_buff)
                     }
                     None => {
                         // If no block exists, need to write from its origin.
@@ -343,13 +347,16 @@ pub trait N5NdarrayWriter: N5Writer {
                             .zip(nom_block_bb.offset.iter())
                             .for_each(|((s, o), g)| *s += *o - *g);
                         block_bb.offset = nom_block_bb.offset.clone();
-                        let block_size_usize = block_bb.size_ndarray_shape();
 
-                        let block_array =
-                            Array::from_elem(&block_size_usize[..], fill_val.clone()).into_dyn();
-                        (block_bb, block_array)
+                        let mut block_buff = block.into_data();
+                        block_buff.resize_with(block_bb.get_num_elements(), || fill_val.clone());
+                        (block_bb, block_buff)
                     }
                 };
+
+                let mut block_array =
+                    Array::from_shape_vec(block_bb.size_ndarray_shape().f(), block_buff)
+                        .expect("TODO: block ndarray failed");
 
                 let block_write_bb = write_bb.clone() - &block_bb.offset;
                 let block_slice = block_write_bb.to_ndarray_slice();
@@ -358,12 +365,13 @@ pub trait N5NdarrayWriter: N5Writer {
 
                 block_view.assign(&arr_view);
 
-                block_vec.clear();
-                block_vec.extend(block_array.t().iter().cloned());
-                let block = VecDataBlock::new(block_bb.size_block(), coord.into(), block_vec);
+                write_buff.clear();
+                write_buff.extend(block_array.t().iter().cloned());
+                read_buff = block_array.into_raw_vec();
+                let block = VecDataBlock::new(block_bb.size_block(), coord.into(), write_buff);
 
                 self.write_block(path_name, data_attrs, &block)?;
-                block_vec = block.into_data();
+                write_buff = block.into_data();
             }
         }
 

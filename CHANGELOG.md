@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Update to Rust 2021 edition.
 - Updated `ndarray` from 0.13 to 0.15.
 - Updated `semver` from 0.9 to 1.0.
+- `N5NdarrayWriter::write_ndarray` performs fewer per-block allocations.
 
 ## [0.7.6] - 2020-10-26
 ### Added
