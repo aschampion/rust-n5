@@ -170,12 +170,12 @@ pub trait N5NdarrayReader: N5Reader {
     ///
     /// Assumes blocks are column-major. The array can be any order, but column-
     /// major will be more efficient.
-    fn read_ndarray_into<'a, T>(
+    fn read_ndarray_into<T>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
         bbox: &BoundingBox,
-        arr: ndarray::ArrayViewMut<'a, T, ndarray::Dim<ndarray::IxDynImpl>>,
+        arr: ndarray::ArrayViewMut<'_, T, ndarray::Dim<ndarray::IxDynImpl>>,
     ) -> Result<(), Error>
     where
         VecDataBlock<T>: DataBlock<T> + ReinitDataBlock<T> + ReadableDataBlock,
@@ -190,12 +190,12 @@ pub trait N5NdarrayReader: N5Reader {
     ///
     /// Assumes blocks are column-major. The array can be any order, but column-
     /// major will be more efficient.
-    fn read_ndarray_into_with_buffer<'a, T>(
+    fn read_ndarray_into_with_buffer<T>(
         &self,
         path_name: &str,
         data_attrs: &DatasetAttributes,
         bbox: &BoundingBox,
-        mut arr: ndarray::ArrayViewMut<'a, T, ndarray::Dim<ndarray::IxDynImpl>>,
+        mut arr: ndarray::ArrayViewMut<'_, T, ndarray::Dim<ndarray::IxDynImpl>>,
         block_buff_opt: &mut Option<VecDataBlock<T>>,
     ) -> Result<(), Error>
     where
