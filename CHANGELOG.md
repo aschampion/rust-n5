@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 <!-- next-header -->
 
 ## [Unreleased]
+### Changed
+- Increase MSRV 1.39 -> 1.51 for tool and dependency upgrades.
 
 ## [0.7.6] - 2020-10-26
 ### Added

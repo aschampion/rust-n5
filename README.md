@@ -10,7 +10,7 @@ Compatible with Java N5 Version 2.1.3.
 
 ## Minimum supported Rust version (MSRV)
 
-Stable 1.39
+Stable 1.51
 
 ## Quick start
 

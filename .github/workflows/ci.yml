@@ -5,7 +5,7 @@ jobs:
   test:
     uses: aschampion/gh-actions/.github/workflows/rust-test.yml@v0
     with:
-      msrv: 1.39
+      msrv: 1.51
 
   semver-checks:
     uses: aschampion/gh-actions/.github/workflows/rust-semver-checks.yml@v0
