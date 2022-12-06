@@ -9,9 +9,7 @@ use itertools::Itertools;
 use ndarray::{
     Array,
     ArrayView,
-    IxDyn,
     ShapeBuilder,
-    SliceInfo,
 };
 
 use crate::{
@@ -112,11 +110,11 @@ impl BoundingBox {
         self.offset.iter().zip(self.size.iter()).map(|(o, s)| o + s)
     }
 
-    pub fn to_ndarray_slice(&self) -> CoordVec<ndarray::SliceOrIndex> {
+    pub fn to_ndarray_slice(&self) -> CoordVec<ndarray::SliceInfoElem> {
         self.offset
             .iter()
             .zip(self.end())
-            .map(|(&start, end)| ndarray::SliceOrIndex::Slice {
+            .map(|(&start, end)| ndarray::SliceInfoElem::Slice {
                 start: start as isize,
                 end: Some(end as isize),
                 step: 1,
@@ -251,8 +249,8 @@ pub trait N5NdarrayReader: N5Reader {
                 let block_read_bb = read_bb.clone() - &block_bb.offset;
 
                 let arr_slice = arr_read_bb.to_ndarray_slice();
-                let mut arr_view =
-                    arr.slice_mut(SliceInfo::<_, IxDyn>::new(arr_slice).unwrap().as_ref());
+
+                let mut arr_view = arr.slice_mut(arr_slice.as_slice());
 
                 let block_slice = block_read_bb.to_ndarray_slice();
 
@@ -260,8 +258,7 @@ pub trait N5NdarrayReader: N5Reader {
                 let block_data =
                     ArrayView::from_shape(block_bb.size_ndarray_shape().f(), block.get_data())
                         .expect("TODO: block ndarray failed");
-                let block_view =
-                    block_data.slice(SliceInfo::<_, IxDyn>::new(block_slice).unwrap().as_ref());
+                let block_view = block_data.slice(block_slice.as_slice());
 
                 arr_view.assign(&block_view);
             }
@@ -312,7 +309,7 @@ pub trait N5NdarrayWriter: N5Writer {
             let arr_bb = write_bb.clone() - &bbox.offset;
 
             let arr_slice = arr_bb.to_ndarray_slice();
-            let arr_view = array.slice(SliceInfo::<_, IxDyn>::new(arr_slice).unwrap().as_ref());
+            let arr_view = array.slice(arr_slice.as_slice());
 
             if write_bb == nom_block_bb {
                 // No need to read whether there is an extant block if it is
@@ -356,8 +353,8 @@ pub trait N5NdarrayWriter: N5Writer {
 
                 let block_write_bb = write_bb.clone() - &block_bb.offset;
                 let block_slice = block_write_bb.to_ndarray_slice();
-                let mut block_view = block_array
-                    .slice_mut(SliceInfo::<_, IxDyn>::new(block_slice).unwrap().as_ref());
+
+                let mut block_view = block_array.slice_mut(block_slice.as_slice());
 
                 block_view.assign(&arr_view);
 

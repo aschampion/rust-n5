@@ -33,7 +33,7 @@ fs2 = { version = "0.4", optional = true }
 itertools = { version = "0.8", optional = true }
 lz4 = { version = "1.23", optional = true }
 lz-fear = { version = "0.1.1", optional = true }
-ndarray = { version = "0.13", optional = true }
+ndarray = { version = "0.15", optional = true }
 num-traits = { version = "0.2", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 smallvec = { version = "1", features = ["serde"] }
