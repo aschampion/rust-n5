@@ -523,7 +523,14 @@ mod tests {
         let create =
             N5Filesystem::open_or_create(path_str).expect("Failed to create N5 filesystem");
         let uri = create.get_block_uri("foo/bar", &vec![1, 2, 3]).unwrap();
-        assert_eq!(uri, format!("file://{}/foo/bar/1/2/3", path_str));
+        assert_eq!(
+            uri,
+            format!(
+                "file://{}{s}foo{s}bar{s}1{s}2{s}3",
+                path_str,
+                s = std::path::MAIN_SEPARATOR
+            )
+        );
     }
 
     #[test]
