@@ -121,14 +121,13 @@ impl N5Filesystem {
         // Note: cannot use `canonicalize` on both the constructed dataset path
         // and `base_path` and check `starts_with`, because `canonicalize` also
         // requires the path exist.
-        use std::path::{
-            Component,
-            Path,
-        };
+        use relative_path::RelativePath;
+        use std::path::Path;
 
         // Normalize the path to be relative.
         let mut components = Path::new(path_name).components();
         while components.as_path().has_root() {
+            use std::path::Component;
             match components.next() {
                 Some(Component::Prefix(_)) => {
                     return Err(Error::new(
@@ -141,16 +140,14 @@ impl N5Filesystem {
                 _ => return Err(Error::new(ErrorKind::NotFound, "Path is malformed")),
             }
         }
-        let unrooted_path = components.as_path();
+        let relative_path = RelativePath::from_path(components.as_path())
+            .map_err(|_| Error::new(ErrorKind::NotFound, "Path is malformed"))?;
 
         // Check that the path is inside the container's base path.
         let mut nest: i32 = 0;
-        for component in unrooted_path.components() {
+        for component in relative_path.components() {
+            use relative_path::Component;
             match component {
-                // This should be unreachable.
-                Component::Prefix(_) | Component::RootDir => {
-                    return Err(Error::new(ErrorKind::NotFound, "Path is malformed"))
-                }
                 Component::CurDir => continue,
                 Component::ParentDir => nest -= 1,
                 Component::Normal(_) => nest += 1,
@@ -163,7 +160,7 @@ impl N5Filesystem {
                 "Path name is outside this N5 filesystem",
             ))
         } else {
-            Ok(self.base_path.join(unrooted_path))
+            Ok(relative_path.to_path(&self.base_path))
         }
     }
 
@@ -516,11 +513,6 @@ mod tests {
     }
 
     #[test]
-    // TODO: this test is ignored on windows because the dataset path in the returned URI still includes the unix slash.
-    // This will be fixed by parsing dataset paths as unix paths in `get_path`, then translating to platform-native
-    // `PathBuf`s. However, the only way to do this at the moment with the `typed_paths` crate depends on unstable
-    // features. See also rust issue #66621.
-    #[cfg_attr(windows, ignore)]
     fn test_get_block_uri() {
         let dir = TempDir::new("rust_n5_tests").unwrap();
         let path_str = dir.path().to_str().unwrap();
