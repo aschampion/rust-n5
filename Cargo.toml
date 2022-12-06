@@ -50,7 +50,7 @@ lazy_static = "1.4"
 rand = "0.7"
 rayon = "1"
 tempdir = "0.3"
-tiff = "0.3"
+tiff = "0.8"
 
 [profile.release]
 lto = true

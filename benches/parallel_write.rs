@@ -46,12 +46,12 @@ lazy_static! {
 
         while decoder.more_images() {
             match decoder.read_image().unwrap() {
-                DecodingResult::U8(_) => panic!("Expect u16 image!"),
                 DecodingResult::U16(img) => {
                     for p in img {
                         pixels.push(p as i8);
                     }
                 }
+                _ => panic!("Expect u16 image!"),
             }
 
             decoder.next_image().unwrap();
