@@ -14,7 +14,7 @@ use serde::{
 pub mod bzip;
 #[cfg(feature = "gzip")]
 pub mod gzip;
-#[cfg(feature = "lz")]
+#[cfg(all(feature = "lz", not(feature = "lz_pure")))]
 pub mod lz;
 #[cfg(feature = "lz_pure")]
 pub(self) mod lz_pure;
